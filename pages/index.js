@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 function TaskCard({ title, onComplete = () => {} }) {
   const [isCompleted, setIsCompleted] = useState(false);
@@ -54,12 +54,56 @@ function TaskCard({ title, onComplete = () => {} }) {
 }
 
 export default function Home() {
-  const tasks = [
+  const allTasks = [
     "Learn Git branches and commits",
     "Practice useState and props in React",
     "Read Cline rules and guidelines",
     "Create a Pull Request on GitHub",
+    "Master CSS Grid and Flexbox",
+    "Build a responsive website",
+    "Learn about React hooks",
+    "Create a custom hook",
+    "Understand async/await in JavaScript",
+    "Practice array methods",
+    "Learn TypeScript basics",
+    "Implement form validation",
+    "Study accessibility guidelines",
+    "Create unit tests",
+    "Deploy to Vercel",
+    "Optimize performance",
+    "Learn about state management",
+    "Practice debugging techniques",
+    "Understand REST APIs",
+    "Build a todo list app"
   ];
+
+  const [tasks, setTasks] = useState([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const getRandomTasks = (array, count) => {
+      const shuffled = [...array].sort(() => 0.5 - Math.random());
+      return shuffled.slice(0, count);
+    };
+    
+    setTasks(getRandomTasks(allTasks, 4));
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <main
+        style={{
+          maxWidth: 720,
+          margin: "40px auto",
+          fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
+        }}
+      >
+        <h1>Task Manager Pro — Local Practice</h1>
+        <div>Loading tasks...</div>
+      </main>
+    );
+  }
 
   return (
     <main
