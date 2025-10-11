@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 
-function TaskCard({ title, onComplete = () => {} }) {
-  const [isCompleted, setIsCompleted] = useState(false);
-
+function TaskCard({ title, isCompleted, onComplete }) {
   const handleClick = () => {
-    setIsCompleted(true);
-    onComplete();
+    if (!isCompleted) {
+      onComplete();
+    }
   };
 
   return (
@@ -78,6 +77,7 @@ export default function Home() {
   ];
 
   const [tasks, setTasks] = useState([]);
+  const [completedTasks, setCompletedTasks] = useState({});
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -86,9 +86,20 @@ export default function Home() {
       return shuffled.slice(0, count);
     };
     
+    // Load completed tasks from localStorage
+    const savedCompletedTasks = localStorage.getItem('completedTasks');
+    if (savedCompletedTasks) {
+      setCompletedTasks(JSON.parse(savedCompletedTasks));
+    }
+    
     setTasks(getRandomTasks(allTasks, 4));
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    // Save completed tasks to localStorage
+    localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+  }, [completedTasks]);
 
   if (!mounted) {
     return (
@@ -114,11 +125,39 @@ export default function Home() {
       }}
     >
       <h1>Task Manager Pro — Local Practice</h1>
+      <button 
+        onClick={() => {
+          localStorage.removeItem('completedTasks');
+          setCompletedTasks({});
+        }}
+        style={{
+          backgroundColor: "#0070f3",
+          color: "white",
+          border: "none",
+          borderRadius: 5,
+          padding: "8px 16px",
+          cursor: "pointer",
+          marginBottom: 20,
+          transition: "all 0.3s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = "#4B5EAA";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = "#0070f3";
+        }}
+      >
+        Reset All Tasks
+      </button>
       {tasks.map((t, i) => (
         <TaskCard
           key={i}
           title={t}
-          onComplete={() => console.log(`${t} completed!`)}
+          isCompleted={completedTasks[t] || false}
+          onComplete={() => {
+            console.log(`${t} completed!`);
+            setCompletedTasks(prev => ({ ...prev, [t]: true }));
+          }}
         />
       ))}
     </main>
