@@ -1,82 +1,1247 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-function TaskCard({ title, onComplete = () => {} }) {
-  const [isCompleted, setIsCompleted] = useState(false);
+// Priority scoring system
+const PRIORITY_WEIGHTS = {
+  CRITICAL: 100,
+  HIGH: 75,
+  MEDIUM: 50,
+  LOW: 25
+};
+
+const CATEGORY_WEIGHTS = {
+  'Backend': 10,
+  'Frontend': 8,
+  'DevOps': 9,
+  'Database': 7,
+  'Security': 10,
+  'Testing': 6
+};
+
+function calculateTaskPriority(task) {
+  let score = 0;
+  
+  // Base priority weight
+  score += PRIORITY_WEIGHTS[task.priority] || 50;
+  
+  // Category importance
+  score += CATEGORY_WEIGHTS[task.category] || 5;
+  
+  // Deadline urgency (exponential decay)
+  if (task.deadline) {
+    const now = new Date();
+    const deadline = new Date(task.deadline);
+    const daysUntil = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntil < 0) score += 50; // Overdue
+    else if (daysUntil <= 1) score += 40;
+    else if (daysUntil <= 3) score += 30;
+    else if (daysUntil <= 7) score += 20;
+    else if (daysUntil <= 14) score += 10;
+  }
+  
+  // Complexity factor
+  const complexityScores = { high: 15, medium: 10, low: 5 };
+  score += complexityScores[task.complexity] || 0;
+  
+  // Dependencies boost
+  score += (task.dependencies?.length || 0) * 5;
+  
+  // Estimated hours (longer tasks = higher priority to start early)
+  if (task.estimatedHours > 8) score += 10;
+  else if (task.estimatedHours > 4) score += 5;
+  
+  return score;
+}
+
+function sortTasksByPriority(tasks) {
+  return tasks
+    .map(task => ({
+      ...task,
+      priorityScore: calculateTaskPriority(task)
+    }))
+    .sort((a, b) => b.priorityScore - a.priorityScore);
+}
+
+// Get priority color for UI
+function getPriorityColor(priority) {
+  const colors = {
+    CRITICAL: '#ff1744',
+    HIGH: '#ff9800',
+    MEDIUM: '#00d9ff',
+    LOW: '#9e9e9e'
+  };
+  return colors[priority] || '#00d9ff';
+}
+
+// Get category color
+function getCategoryColor(category) {
+  const colors = {
+    Backend: '#667eea',
+    Frontend: '#764ba2',
+    DevOps: '#f093fb',
+    Database: '#4facfe',
+    Security: '#ff6b6b',
+    Testing: '#95e1d3'
+  };
+  return colors[category] || '#a0a0a0';
+}
+
+const styles = {
+  taskCard: {
+    background: "rgba(255, 255, 255, 0.08)",
+    backdropFilter: "blur(20px) saturate(180%)",
+    border: "2px solid transparent",
+    backgroundClip: "padding-box",
+    position: "relative",
+    borderRadius: 16,
+    padding: 20,
+    margin: "20px 0",
+    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+    animation: "float 6s ease-in-out infinite",
+    boxShadow: `
+      inset 0 1px 0 0 rgba(255,255,255,0.2),
+      0 20px 60px rgba(0,0,0,0.3),
+      0 0 40px rgba(102,126,234,0.2)
+    `,
+  },
+  
+  button: {
+    cursor: "pointer",
+    border: "none",
+    borderRadius: 8,
+    padding: "12px 24px",
+    color: "#fff",
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+    fontSize: "1rem",
+    fontWeight: "600",
+    boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
+    width: "100%",
+    transform: "scale(1)",
+    position: "relative",
+    overflow: "hidden",
+  },
+  
+  badge: {
+    display: 'inline-block',
+    padding: '0.25rem 0.75rem',
+    borderRadius: '12px',
+    fontSize: '0.7rem',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    color: '#fff',
+    letterSpacing: '0.5px',
+  },
+};
+
+const EXTENDED_TASKS = [
+  // BACKEND (12 tasks)
+  { 
+    id: 1, 
+    title: 'Implement REST API authentication with JWT', 
+    category: 'Backend',
+    priority: 'CRITICAL',
+    complexity: 'high',
+    deadline: '2025-10-20',
+    dependencies: [],
+    tags: ['API', 'Auth', 'Security', 'JWT'],
+    estimatedHours: 8,
+    description: 'Setup JWT-based authentication with refresh tokens'
+  },
+  { 
+    id: 2, 
+    title: 'Optimize database queries with indexing', 
+    category: 'Backend',
+    priority: 'HIGH',
+    complexity: 'medium',
+    deadline: '2025-10-25',
+    dependencies: [],
+    tags: ['Database', 'Performance', 'SQL'],
+    estimatedHours: 6,
+    description: 'Add indexes to frequently queried columns'
+  },
+  { 
+    id: 3, 
+    title: 'Create GraphQL schema for user management', 
+    category: 'Backend',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    deadline: '2025-10-25',
+    dependencies: [1],
+    tags: ['GraphQL', 'API', 'Schema'],
+    estimatedHours: 5,
+    description: 'Design GraphQL types and resolvers'
+  },
+  { 
+    id: 4, 
+    title: 'Setup Redis caching layer', 
+    category: 'Backend',
+    priority: 'HIGH',
+    complexity: 'medium',
+    deadline: '2025-10-22',
+    tags: ['Cache', 'Performance', 'Redis'],
+    estimatedHours: 4,
+    description: 'Implement Redis for session and query caching'
+  },
+  { 
+    id: 5, 
+    title: 'Implement rate limiting middleware', 
+    category: 'Backend',
+    priority: 'HIGH',
+    complexity: 'low',
+    tags: ['Security', 'Middleware', 'Express'],
+    estimatedHours: 3,
+    description: 'Add rate limiting to prevent abuse'
+  },
+  { 
+    id: 6, 
+    title: 'Setup WebSocket server for real-time updates', 
+    category: 'Backend',
+    priority: 'MEDIUM',
+    complexity: 'high',
+    tags: ['WebSocket', 'Real-time', 'Socket.io'],
+    estimatedHours: 7,
+    description: 'Enable real-time task updates'
+  },
+  { 
+    id: 7, 
+    title: 'Create API documentation with Swagger', 
+    category: 'Backend',
+    priority: 'LOW',
+    complexity: 'low',
+    tags: ['Documentation', 'API', 'Swagger'],
+    estimatedHours: 4,
+    description: 'Auto-generate API docs'
+  },
+  { 
+    id: 8, 
+    title: 'Implement file upload with S3', 
+    category: 'Backend',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    tags: ['Storage', 'AWS', 'Upload'],
+    estimatedHours: 5,
+    description: 'Add file attachment support'
+  },
+  { 
+    id: 9, 
+    title: 'Setup error tracking with Sentry', 
+    category: 'Backend',
+    priority: 'HIGH',
+    complexity: 'low',
+    deadline: '2025-10-18',
+    tags: ['Monitoring', 'Errors', 'Sentry'],
+    estimatedHours: 2,
+    description: 'Track and alert on server errors'
+  },
+  { 
+    id: 10, 
+    title: 'Create database migration system', 
+    category: 'Backend',
+    priority: 'HIGH',
+    complexity: 'medium',
+    tags: ['Database', 'Migration', 'Version Control'],
+    estimatedHours: 5,
+    description: 'Setup Knex.js migrations'
+  },
+  { 
+    id: 11, 
+    title: 'Implement background job queue', 
+    category: 'Backend',
+    priority: 'MEDIUM',
+    complexity: 'high',
+    tags: ['Queue', 'Bull', 'Jobs'],
+    estimatedHours: 6,
+    description: 'Setup Bull for async tasks'
+  },
+  { 
+    id: 12, 
+    title: 'Add API versioning strategy', 
+    category: 'Backend',
+    priority: 'LOW',
+    complexity: 'low',
+    tags: ['API', 'Versioning', 'REST'],
+    estimatedHours: 3,
+    description: 'Implement /v1/, /v2/ routing'
+  },
+  
+  // FRONTEND (15 tasks)
+  { 
+    id: 13, 
+    title: 'Build responsive navigation with mobile menu', 
+    category: 'Frontend',
+    priority: 'HIGH',
+    complexity: 'medium',
+    deadline: '2025-10-18',
+    tags: ['React', 'UI', 'Responsive'],
+    estimatedHours: 5,
+    description: 'Create hamburger menu for mobile'
+  },
+  { 
+    id: 14, 
+    title: 'Implement dark mode with system preference', 
+    category: 'Frontend',
+    priority: 'HIGH',
+    complexity: 'low',
+    deadline: '2025-10-16',
+    tags: ['UI', 'Accessibility', 'Theme'],
+    estimatedHours: 3,
+    description: 'Toggle between light/dark themes'
+  },
+  { 
+    id: 15, 
+    title: 'Create reusable form validation hooks', 
+    category: 'Frontend',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    tags: ['React', 'Hooks', 'Forms'],
+    estimatedHours: 4,
+    description: 'Custom useForm hook with validation'
+  },
+  { 
+    id: 16, 
+    title: 'Optimize bundle size with code splitting', 
+    category: 'Frontend',
+    priority: 'HIGH',
+    complexity: 'high',
+    tags: ['Performance', 'Webpack', 'Optimization'],
+    estimatedHours: 6,
+    description: 'Dynamic imports and lazy loading'
+  },
+  { 
+    id: 17, 
+    title: 'Add skeleton loading states', 
+    category: 'Frontend',
+    priority: 'LOW',
+    complexity: 'low',
+    tags: ['UI', 'UX', 'Loading'],
+    estimatedHours: 2,
+    description: 'Shimmer placeholders while loading'
+  },
+  { 
+    id: 18, 
+    title: 'Implement infinite scroll with virtualization', 
+    category: 'Frontend',
+    priority: 'CRITICAL',
+    complexity: 'high',
+    deadline: '2025-10-17',
+    tags: ['Performance', 'UX', 'Scroll'],
+    estimatedHours: 7,
+    description: 'Virtual scrolling for 1000+ items'
+  },
+  { 
+    id: 19, 
+    title: 'Create toast notification system', 
+    category: 'Frontend',
+    priority: 'MEDIUM',
+    complexity: 'low',
+    tags: ['UI', 'Notifications', 'UX'],
+    estimatedHours: 3,
+    description: 'Success/error/warning toasts'
+  },
+  { 
+    id: 20, 
+    title: 'Add drag-and-drop task reordering', 
+    category: 'Frontend',
+    priority: 'LOW',
+    complexity: 'high',
+    tags: ['UI', 'Interaction', 'DnD'],
+    estimatedHours: 8,
+    description: 'Drag tasks to change priority'
+  },
+  { 
+    id: 21, 
+    title: 'Implement search with debouncing', 
+    category: 'Frontend',
+    priority: 'MEDIUM',
+    complexity: 'low',
+    tags: ['Search', 'UX', 'Performance'],
+    estimatedHours: 3,
+    description: 'Filter tasks by keyword'
+  },
+  { 
+    id: 22, 
+    title: 'Create animated progress bars', 
+    category: 'Frontend',
+    priority: 'LOW',
+    complexity: 'low',
+    tags: ['Animation', 'UI', 'Progress'],
+    estimatedHours: 2,
+    description: 'Visual task completion indicators'
+  },
+  { 
+    id: 23, 
+    title: 'Add keyboard shortcuts', 
+    category: 'Frontend',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    tags: ['Accessibility', 'UX', 'Keyboard'],
+    estimatedHours: 4,
+    description: 'Hotkeys for common actions'
+  },
+  { 
+    id: 24, 
+    title: 'Implement error boundaries', 
+    category: 'Frontend',
+    priority: 'HIGH',
+    complexity: 'low',
+    tags: ['Error', 'React', 'Stability'],
+    estimatedHours: 2,
+    description: 'Graceful error handling'
+  },
+  { 
+    id: 25, 
+    title: 'Create multi-select with bulk actions', 
+    category: 'Frontend',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    tags: ['UI', 'UX', 'Bulk'],
+    estimatedHours: 5,
+    description: 'Select multiple tasks for batch operations'
+  },
+  { 
+    id: 26, 
+    title: 'Add data export to CSV/JSON', 
+    category: 'Frontend',
+    priority: 'LOW',
+    complexity: 'low',
+    tags: ['Export', 'Data', 'Download'],
+    estimatedHours: 3,
+    description: 'Download tasks as file'
+  },
+  { 
+    id: 27, 
+    title: 'Implement accessibility audit fixes', 
+    category: 'Frontend',
+    priority: 'HIGH',
+    complexity: 'medium',
+    deadline: '2025-10-19',
+    tags: ['Accessibility', 'WCAG', 'A11y'],
+    estimatedHours: 6,
+    description: 'WCAG 2.1 AA compliance'
+  },
+  
+  // DEVOPS (12 tasks)
+  { 
+    id: 28, 
+    title: 'Setup CI/CD pipeline with GitHub Actions', 
+    category: 'DevOps',
+    priority: 'CRITICAL',
+    complexity: 'high',
+    deadline: '2025-10-19',
+    tags: ['CI/CD', 'Automation', 'GitHub'],
+    estimatedHours: 8,
+    description: 'Automated testing and deployment'
+  },
+  { 
+    id: 29, 
+    title: 'Configure Docker multi-stage builds', 
+    category: 'DevOps',
+    priority: 'HIGH',
+    complexity: 'medium',
+    tags: ['Docker', 'Optimization', 'Container'],
+    estimatedHours: 4,
+    description: 'Reduce image size by 70%'
+  },
+  { 
+    id: 30, 
+    title: 'Implement blue-green deployment', 
+    category: 'DevOps',
+    priority: 'MEDIUM',
+    complexity: 'high',
+    dependencies: [28],
+    tags: ['Deployment', 'Kubernetes', 'Zero-downtime'],
+    estimatedHours: 10,
+    description: 'Zero-downtime deployments'
+  },
+  { 
+    id: 31, 
+    title: 'Setup monitoring with Prometheus + Grafana', 
+    category: 'DevOps',
+    priority: 'HIGH',
+    complexity: 'medium',
+    tags: ['Monitoring', 'Observability', 'Metrics'],
+    estimatedHours: 5,
+    description: 'Real-time metrics dashboards'
+  },
+  { 
+    id: 32, 
+    title: 'Configure auto-scaling policies', 
+    category: 'DevOps',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    tags: ['Scalability', 'Cloud', 'Auto-scale'],
+    estimatedHours: 4,
+    description: 'Scale based on CPU/memory'
+  },
+  { 
+    id: 33, 
+    title: 'Implement log aggregation with ELK', 
+    category: 'DevOps',
+    priority: 'MEDIUM',
+    complexity: 'high',
+    tags: ['Logging', 'ELK', 'Debugging'],
+    estimatedHours: 7,
+    description: 'Centralized log management'
+  },
+  { 
+    id: 34, 
+    title: 'Setup infrastructure as code with Terraform', 
+    category: 'DevOps',
+    priority: 'LOW',
+    complexity: 'high',
+    tags: ['IaC', 'Terraform', 'Automation'],
+    estimatedHours: 9,
+    description: 'Version-controlled infrastructure'
+  },
+  { 
+    id: 35, 
+    title: 'Create disaster recovery plan', 
+    category: 'DevOps',
+    priority: 'HIGH',
+    complexity: 'medium',
+    deadline: '2025-10-21',
+    tags: ['DR', 'Backup', 'Resilience'],
+    estimatedHours: 6,
+    description: 'Backup and recovery procedures'
+  },
+  { 
+    id: 36, 
+    title: 'Implement secret management with Vault', 
+    category: 'DevOps',
+    priority: 'HIGH',
+    complexity: 'medium',
+    tags: ['Security', 'Secrets', 'Vault'],
+    estimatedHours: 5,
+    description: 'Secure credential storage'
+  },
+  { 
+    id: 37, 
+    title: 'Setup performance testing with k6', 
+    category: 'DevOps',
+    priority: 'MEDIUM',
+    complexity: 'low',
+    tags: ['Testing', 'Performance', 'Load'],
+    estimatedHours: 3,
+    description: 'Automated load testing'
+  },
+  { 
+    id: 38, 
+    title: 'Configure CDN with CloudFlare', 
+    category: 'DevOps',
+    priority: 'MEDIUM',
+    complexity: 'low',
+    tags: ['CDN', 'Performance', 'CloudFlare'],
+    estimatedHours: 3,
+    description: 'Global content delivery'
+  },
+  { 
+    id: 39, 
+    title: 'Implement health checks and readiness probes', 
+    category: 'DevOps',
+    priority: 'HIGH',
+    complexity: 'low',
+    tags: ['Health', 'Monitoring', 'K8s'],
+    estimatedHours: 2,
+    description: 'Service health monitoring'
+  },
+  
+  // DATABASE (8 tasks)
+  { 
+    id: 40, 
+    title: 'Design database normalization strategy', 
+    category: 'Database',
+    priority: 'HIGH',
+    complexity: 'high',
+    tags: ['Schema', 'Optimization', 'Design'],
+    estimatedHours: 6,
+    description: '3NF normalization for efficiency'
+  },
+  { 
+    id: 41, 
+    title: 'Implement database backup automation', 
+    category: 'Database',
+    priority: 'CRITICAL',
+    complexity: 'medium',
+    deadline: '2025-10-21',
+    tags: ['Backup', 'DR', 'Automation'],
+    estimatedHours: 5,
+    description: 'Hourly incremental backups'
+  },
+  { 
+    id: 42, 
+    title: 'Setup database replication (master-slave)', 
+    category: 'Database',
+    priority: 'HIGH',
+    complexity: 'high',
+    tags: ['HA', 'Replication', 'Redundancy'],
+    estimatedHours: 8,
+    description: 'High availability setup'
+  },
+  { 
+    id: 43, 
+    title: 'Create migration scripts for schema changes', 
+    category: 'Database',
+    priority: 'MEDIUM',
+    complexity: 'low',
+    tags: ['Migration', 'Version Control', 'Schema'],
+    estimatedHours: 3,
+    description: 'Safe schema evolution'
+  },
+  { 
+    id: 44, 
+    title: 'Optimize slow queries with EXPLAIN ANALYZE', 
+    category: 'Database',
+    priority: 'HIGH',
+    complexity: 'medium',
+    tags: ['Performance', 'Tuning', 'SQL'],
+    estimatedHours: 4,
+    description: 'Identify and fix bottlenecks'
+  },
+  { 
+    id: 45, 
+    title: 'Implement database connection pooling', 
+    category: 'Database',
+    priority: 'HIGH',
+    complexity: 'low',
+    tags: ['Performance', 'Connections', 'Pooling'],
+    estimatedHours: 2,
+    description: 'Reuse connections efficiently'
+  },
+  { 
+    id: 46, 
+    title: 'Setup database monitoring and alerts', 
+    category: 'Database',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    tags: ['Monitoring', 'Alerts', 'Observability'],
+    estimatedHours: 4,
+    description: 'Track performance metrics'
+  },
+  { 
+    id: 47, 
+    title: 'Create database seeding scripts', 
+    category: 'Database',
+    priority: 'LOW',
+    complexity: 'low',
+    tags: ['Testing', 'Seed', 'Development'],
+    estimatedHours: 2,
+    description: 'Populate test data'
+  },
+  
+  // SECURITY (7 tasks)
+  { 
+    id: 48, 
+    title: 'Implement OAuth 2.0 with Google/GitHub', 
+    category: 'Security',
+    priority: 'CRITICAL',
+    complexity: 'high',
+    deadline: '2025-10-23',
+    tags: ['Auth', 'OAuth', 'SSO'],
+    estimatedHours: 10,
+    description: 'Social login integration'
+  },
+  { 
+    id: 49, 
+    title: 'Add CSRF protection middleware', 
+    category: 'Security',
+    priority: 'HIGH',
+    complexity: 'low',
+    tags: ['Security', 'Web', 'CSRF'],
+    estimatedHours: 2,
+    description: 'Prevent cross-site attacks'
+  },
+  { 
+    id: 50, 
+    title: 'Conduct security audit and penetration testing', 
+    category: 'Security',
+    priority: 'HIGH',
+    complexity: 'high',
+    deadline: '2025-10-26',
+    tags: ['Audit', 'Testing', 'PenTest'],
+    estimatedHours: 12,
+    description: 'Find and fix vulnerabilities'
+  },
+  { 
+    id: 51, 
+    title: 'Implement input sanitization for XSS prevention', 
+    category: 'Security',
+    priority: 'CRITICAL',
+    complexity: 'medium',
+    tags: ['XSS', 'Validation', 'Sanitization'],
+    estimatedHours: 4,
+    description: 'Sanitize all user inputs'
+  },
+  { 
+    id: 52, 
+    title: 'Setup SSL/TLS with auto-renewal', 
+    category: 'Security',
+    priority: 'HIGH',
+    complexity: 'low',
+    deadline: '2025-10-17',
+    tags: ['SSL', 'Encryption', 'Certificates'],
+    estimatedHours: 2,
+    description: "Let's Encrypt automation"
+  },
+  { 
+    id: 53, 
+    title: 'Implement Content Security Policy headers', 
+    category: 'Security',
+    priority: 'MEDIUM',
+    complexity: 'low',
+    tags: ['CSP', 'Headers', 'Security'],
+    estimatedHours: 3,
+    description: 'Prevent XSS and injection attacks'
+  },
+  { 
+    id: 54, 
+    title: 'Add two-factor authentication (2FA)', 
+    category: 'Security',
+    priority: 'MEDIUM',
+    complexity: 'high',
+    tags: ['2FA', 'Auth', 'Security'],
+    estimatedHours: 8,
+    description: 'TOTP-based 2FA'
+  },
+];
+
+function TaskCard({ task, isCompleted, onComplete, index }) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [buttonScale, setButtonScale] = useState(1);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   const handleClick = () => {
-    setIsCompleted(true);
-    onComplete();
+    if (!isCompleted) {
+      setIsAnimating(true);
+      onComplete();
+      // Reset animation state after duration
+      setTimeout(() => setIsAnimating(false), 400);
+    }
+  };
+
+  const handleMouseDown = () => {
+    setButtonScale(0.95);
+  };
+
+  const handleMouseUp = () => {
+    setButtonScale(1);
   };
 
   return (
     <div
       style={{
-        background: "#ffffff",
-        border: "1px solid #e0e0e0",
-        borderRadius: 8,
-        padding: 16,
-        margin: 16,
-        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-        transition: "box-shadow 0.3s ease, transform 0.3s ease",
+        ...styles.taskCard,
+        borderLeft: `4px solid ${getPriorityColor(task.priority)}`,
+        animation: `fadeInUp 0.5s ease-out ${index * 0.05}s backwards`,
       }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = "scale(1.02)";
-        e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "scale(1)";
-        e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      <h2 style={{ marginTop: 0 }}>{title}</h2>
+      {/* Header with badges */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+        <span style={{
+          ...styles.badge,
+          background: getPriorityColor(task.priority),
+        }}>
+          {task.priority}
+        </span>
+        <span style={{
+          ...styles.badge,
+          background: getCategoryColor(task.category),
+        }}>
+          {task.category}
+        </span>
+        {task.deadline && (
+          <span style={{
+            ...styles.badge,
+            background: 'rgba(255,255,255,0.2)',
+          }}>
+            📅 {new Date(task.deadline).toLocaleDateString()}
+          </span>
+        )}
+      </div>
+      
+      {/* Title */}
+      <h3 style={{ 
+        margin: '0.5rem 0', 
+        fontSize: '1.25rem', 
+        fontWeight: '600',
+        color: "#ffffff",
+        lineHeight: "1.3",
+        textShadow: "0 2px 10px rgba(0, 0, 0, 0.3)",
+      }}>
+        {task.title}
+      </h3>
+      
+      {/* Description */}
+      {task.description && (
+        <p style={{ 
+          fontSize: '0.9rem', 
+          color: 'rgba(255,255,255,0.7)', 
+          marginBottom: '0.75rem',
+          marginTop: '0.5rem',
+        }}>
+          {task.description}
+        </p>
+      )}
+      
+      {/* Metadata */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '1rem', 
+        fontSize: '0.85rem', 
+        color: 'rgba(255,255,255,0.6)', 
+        marginBottom: '1rem' 
+      }}>
+        {task.estimatedHours && <span>⏱️ {task.estimatedHours}h</span>}
+        {task.complexity && <span>🎯 {task.complexity}</span>}
+        {task.dependencies && task.dependencies.length > 0 && (
+          <span>🔗 {task.dependencies.length} deps</span>
+        )}
+      </div>
+      
+      {/* Tags */}
+      {task.tags && task.tags.length > 0 && (
+        <div style={{ 
+          display: 'flex', 
+          gap: '0.5rem', 
+          marginBottom: '1rem', 
+          flexWrap: 'wrap' 
+        }}>
+          {task.tags.map(tag => (
+            <span key={tag} style={{
+              fontSize: '0.75rem',
+              padding: '0.25rem 0.5rem',
+              borderRadius: '8px',
+              background: 'rgba(255,255,255,0.1)',
+              color: '#fff',
+            }}>
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+      
+      {/* Button */}
       <button
         onClick={handleClick}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         style={{
-          cursor: "pointer",
-          border: "none",
-          borderRadius: 5,
-          padding: "12px 24px",
-          color: "#fff",
-          backgroundColor: isCompleted ? "#10b981" : "#0070f3",
-          transition: "all 0.3s ease",
-        }}
-        onMouseEnter={(e) => {
-          if (!isCompleted) e.currentTarget.style.backgroundColor = "#4B5EAA";
-        }}
-        onMouseLeave={(e) => {
-          if (!isCompleted) e.currentTarget.style.backgroundColor = "#0070f3";
+          ...styles.button,
+          background: isCompleted 
+            ? "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)" 
+            : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          boxShadow: isCompleted 
+            ? "0 4px 15px rgba(56, 239, 125, 0.4)" 
+            : "0 4px 15px rgba(102, 126, 234, 0.4)",
+          transform: `scale(${buttonScale})`,
         }}
       >
-        {isCompleted ? "Completed ✅" : "Mark as done"}
+        {isCompleted ? (
+          <span style={{ 
+            animation: isAnimating ? "checkmarkScale 0.4s ease" : "none",
+            display: "inline-block"
+          }}>
+            Completed ✅
+          </span>
+        ) : "Mark as done"}
       </button>
     </div>
   );
 }
 
 export default function Home() {
-  const tasks = [
-    "Learn Git branches and commits",
-    "Practice useState and props in React",
-    "Read Cline rules and guidelines",
-    "Create a Pull Request on GitHub",
-  ];
+  const [allTasksList, setAllTasksList] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [completedTasks, setCompletedTasks] = useState({});
+  const [mounted, setMounted] = useState(false);
+  const TASKS_PER_PAGE = 4;
+
+  useEffect(() => {
+    // Load completed tasks from localStorage
+    const savedCompletedTasks = localStorage.getItem('completedTasks');
+    if (savedCompletedTasks) {
+      setCompletedTasks(JSON.parse(savedCompletedTasks));
+    }
+    
+    // Sort tasks by priority
+    const sortedTasks = sortTasksByPriority(EXTENDED_TASKS);
+    
+    // Initialize with first page
+    setAllTasksList(sortedTasks);
+    setTasks(sortedTasks.slice(0, TASKS_PER_PAGE));
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    // Save completed tasks to localStorage
+    localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+  }, [completedTasks]);
+
+  useEffect(() => {
+    // Trigger confetti when all tasks are completed
+    if (Object.keys(completedTasks).length === tasks.length && tasks.length > 0) {
+      // Check if all current tasks are completed
+      const allCompleted = tasks.every(task => completedTasks[task.id]);
+      if (allCompleted) {
+        // Trigger confetti
+        if (typeof window !== 'undefined' && window.confetti) {
+          window.confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+          });
+        }
+      }
+    }
+  }, [completedTasks, tasks]);
+
+  if (!mounted) {
+    return (
+      <div style={{
+        backgroundImage: "url('https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1920')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+        minHeight: "100vh",
+        padding: "2rem",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0, 0, 0, 0.3)",
+          zIndex: 0,
+        }}></div>
+        {/* Floating shapes layer */}
+        <div style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}>
+          <div style={{
+            position: "absolute",
+            top: "10%",
+            left: "5%",
+            width: "300px",
+            height: "300px",
+            background: "rgba(102, 126, 234, 0.3)",
+            borderRadius: "50%",
+            filter: "blur(100px)",
+            animation: "float 20s ease-in-out infinite",
+          }}></div>
+          <div style={{
+            position: "absolute",
+            top: "60%",
+            right: "10%",
+            width: "250px",
+            height: "250px",
+            background: "rgba(236, 72, 153, 0.3)",
+            borderRadius: "50%",
+            filter: "blur(100px)",
+            animation: "float 22s ease-in-out infinite reverse",
+          }}></div>
+          <div style={{
+            position: "absolute",
+            bottom: "15%",
+            left: "15%",
+            width: "200px",
+            height: "200px",
+            background: "rgba(167, 139, 250, 0.3)",
+            borderRadius: "50%",
+            filter: "blur(100px)",
+            animation: "float 18s ease-in-out infinite",
+          }}></div>
+        </div>
+        {/* Grid pattern overlay */}
+        <div style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          backgroundImage: `
+            linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)
+          `,
+          backgroundSize: "50px 50px",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}></div>
+        <main
+          style={{
+            maxWidth: 720,
+            margin: "0 auto",
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            position: "relative",
+            zIndex: 1,
+          }}
+        >
+          <div style={{
+            background: "rgba(255, 255, 255, 0.1)",
+            backdropFilter: "blur(30px)",
+            padding: "2.5rem 4rem",
+            borderRadius: "24px",
+            border: "2px solid rgba(255,255,255,0.2)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            width: "fit-content",
+            margin: "0 auto",
+            marginBottom: "2rem",
+          }}>
+            <h1 style={{ 
+              fontSize: "3rem",
+              fontWeight: "800",
+              background: "linear-gradient(135deg, #fff 0%, #a78bfa 50%, #ec4899 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              letterSpacing: "-0.02em",
+              textAlign: "center",
+              margin: 0,
+              width: "100%",
+            }}>
+              Welcome to Task Manager Pro
+            </h1>
+            <div style={{
+              fontSize: "1.1rem",
+              color: "rgba(255,255,255,0.8)",
+              marginTop: "0.5rem",
+              textAlign: "center",
+            }}>
+              Organize your learning journey
+            </div>
+          </div>
+          <div style={{ color: "#fff", textAlign: "center", fontSize: "1.2rem" }}>Loading tasks...</div>
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <main
-      style={{
-        maxWidth: 720,
-        margin: "40px auto",
-        fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial",
-      }}
-    >
-      <h1>Task Manager Pro — Local Practice</h1>
-      {tasks.map((t, i) => (
-        <TaskCard
-          key={i}
-          title={t}
-          onComplete={() => console.log(`${t} completed!`)}
-        />
-      ))}
-    </main>
+    <div style={{
+      backgroundImage: "url('https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1920')",
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundAttachment: "fixed",
+      minHeight: "100vh",
+      padding: "2rem",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      <div style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0, 0, 0, 0.3)",
+        zIndex: 0,
+      }}></div>
+      {/* Floating shapes layer */}
+      <div style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        zIndex: 0,
+      }}>
+        <div style={{
+          position: "absolute",
+          top: "10%",
+          left: "5%",
+          width: "300px",
+          height: "300px",
+          background: "rgba(102, 126, 234, 0.3)",
+          borderRadius: "50%",
+          filter: "blur(100px)",
+          animation: "float 20s ease-in-out infinite",
+        }}></div>
+        <div style={{
+          position: "absolute",
+          top: "60%",
+          right: "10%",
+          width: "250px",
+          height: "250px",
+          background: "rgba(236, 72, 153, 0.3)",
+          borderRadius: "50%",
+          filter: "blur(100px)",
+          animation: "float 22s ease-in-out infinite reverse",
+        }}></div>
+        <div style={{
+          position: "absolute",
+          bottom: "15%",
+          left: "15%",
+          width: "200px",
+          height: "200px",
+          background: "rgba(167, 139, 250, 0.3)",
+          borderRadius: "50%",
+          filter: "blur(100px)",
+          animation: "float 18s ease-in-out infinite",
+        }}></div>
+      </div>
+      {/* Grid pattern overlay */}
+      <div style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        backgroundImage: `
+          linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)
+        `,
+        backgroundSize: "50px 50px",
+        pointerEvents: "none",
+        zIndex: 0,
+      }}></div>
+      <style jsx>{`
+        @keyframes gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes checkmarkScale {
+          0% { transform: scale(0.5); }
+          50% { transform: scale(1.2); }
+          100% { transform: scale(1); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(5deg); }
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+      <main
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <div style={{
+          background: "rgba(255, 255, 255, 0.15)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid rgba(255, 255, 255, 0.3)",
+          padding: "2rem 3rem",
+          borderRadius: 20,
+          boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
+          marginBottom: "2rem",
+          display: "inline-block",
+          animation: "float 6s ease-in-out infinite",
+        }}>
+          <h1 style={{ 
+            color: "#ffffff",
+            textAlign: "center", 
+            fontSize: "3.5rem", 
+            fontWeight: "800",
+            textShadow: "0 2px 20px rgba(0, 0, 0, 0.3)",
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            margin: 0,
+          }}>
+            Welcome to Task Manager Pro
+          </h1>
+        </div>
+        <div style={{
+          background: "rgba(255,255,255,0.15)",
+          backdropFilter: "blur(15px)",
+          border: "1px solid rgba(255,255,255,0.3)",
+          padding: "1rem 2rem",
+          borderRadius: "50px",
+          display: "flex",
+          alignItems: "center",
+          gap: "1rem",
+          marginBottom: "2rem",
+          boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
+        }}>
+          <div style={{ color: "white", fontWeight: "600" }}>
+            {Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length} of {tasks.length} tasks completed
+          </div>
+          <div style={{
+            width: "120px",
+            height: "8px",
+            background: "rgba(255,255,255,0.1)",
+            borderRadius: "4px",
+            overflow: "hidden",
+          }}>
+            <div style={{
+              height: "100%",
+              width: `${(Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length / tasks.length) * 100}%`,
+              background: "linear-gradient(90deg, #667eea, #764ba2, #f093fb)",
+              borderRadius: "4px",
+              transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+              boxShadow: "0 0 10px rgba(102,126,234,0.3)",
+            }}></div>
+          </div>
+        </div>
+        <button 
+          onClick={() => {
+            localStorage.removeItem('completedTasks');
+            setCompletedTasks({});
+            const sortedTasks = sortTasksByPriority(EXTENDED_TASKS);
+            setAllTasksList(sortedTasks);
+            setTasks(sortedTasks.slice(0, TASKS_PER_PAGE));
+          }}
+          style={{
+            background: "linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))",
+            backdropFilter: "blur(20px)",
+            border: "2px solid rgba(255,255,255,0.3)",
+            color: "white",
+            fontWeight: "600",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.3)",
+            borderRadius: 12,
+            padding: "16px 32px",
+            cursor: "pointer",
+            marginBottom: 30,
+            transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+            fontSize: "1rem",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = "0 0 30px rgba(255,255,255,0.4), inset 0 1px 0 rgba(255,255,255,0.3)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.3)";
+          }}
+        >
+          Reset All Tasks
+        </button>
+        {tasks.map((task, i) => (
+          <div key={task.id} style={{ animation: "fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards", opacity: 0, animationDelay: `${i * 0.1}s` }}>
+            <TaskCard
+              task={task}
+              isCompleted={completedTasks[task.id] || false}
+              onComplete={() => {
+                console.log(`${task.title} completed!`);
+                setCompletedTasks(prev => ({ ...prev, [task.id]: true }));
+              }}
+              index={i}
+            />
+          </div>
+        ))}
+      </main>
+    </div>
   );
 }
