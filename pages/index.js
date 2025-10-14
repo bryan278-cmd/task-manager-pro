@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
+import { ThemeContext } from "./_app";
 
 // Priority scoring system
 const PRIORITY_WEIGHTS = {
@@ -88,9 +89,7 @@ function getCategoryColor(category) {
 
 const styles = {
   taskCard: {
-    background: "rgba(255, 255, 255, 0.08)",
     backdropFilter: "blur(20px) saturate(180%)",
-    border: "2px solid transparent",
     backgroundClip: "padding-box",
     position: "relative",
     borderRadius: 16,
@@ -98,11 +97,6 @@ const styles = {
     margin: "20px 0",
     transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
     animation: "float 6s ease-in-out infinite",
-    boxShadow: `
-      inset 0 1px 0 0 rgba(255,255,255,0.2),
-      0 20px 60px rgba(0,0,0,0.3),
-      0 0 40px rgba(102,126,234,0.2)
-    `,
   },
   
   button: {
@@ -111,11 +105,9 @@ const styles = {
     borderRadius: 8,
     padding: "12px 24px",
     color: "#fff",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
     transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
     fontSize: "1rem",
     fontWeight: "600",
-    boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
     width: "100%",
     transform: "scale(1)",
     position: "relative",
@@ -705,7 +697,7 @@ const EXTENDED_TASKS = [
   },
 ];
 
-function TaskCard({ task, isCompleted, onComplete, index }) {
+function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
   const [isHovered, setIsHovered] = useState(false);
   const [buttonScale, setButtonScale] = useState(1);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -727,10 +719,15 @@ function TaskCard({ task, isCompleted, onComplete, index }) {
     setButtonScale(1);
   };
 
+  const currentColors = isDark ? colors.dark : colors.light;
+
   return (
     <div
       style={{
         ...styles.taskCard,
+        background: currentColors.cardBg,
+        border: `1px solid ${currentColors.cardBorder}`,
+        boxShadow: currentColors.cardShadow,
         borderLeft: `4px solid ${getPriorityColor(task.priority)}`,
         animation: `fadeInUp 0.5s ease-out ${index * 0.05}s backwards`,
       }}
@@ -766,9 +763,8 @@ function TaskCard({ task, isCompleted, onComplete, index }) {
         margin: '0.5rem 0', 
         fontSize: '1.25rem', 
         fontWeight: '600',
-        color: "#ffffff",
+        color: currentColors.text,
         lineHeight: "1.3",
-        textShadow: "0 2px 10px rgba(0, 0, 0, 0.3)",
       }}>
         {task.title}
       </h3>
@@ -777,7 +773,7 @@ function TaskCard({ task, isCompleted, onComplete, index }) {
       {task.description && (
         <p style={{ 
           fontSize: '0.9rem', 
-          color: 'rgba(255,255,255,0.7)', 
+          color: isDark ? 'rgba(229, 231, 235, 0.7)' : 'rgba(17, 17, 17, 0.7)',
           marginBottom: '0.75rem',
           marginTop: '0.5rem',
         }}>
@@ -790,7 +786,7 @@ function TaskCard({ task, isCompleted, onComplete, index }) {
         display: 'flex', 
         gap: '1rem', 
         fontSize: '0.85rem', 
-        color: 'rgba(255,255,255,0.6)', 
+        color: isDark ? 'rgba(229, 231, 235, 0.6)' : 'rgba(17, 17, 17, 0.6)',
         marginBottom: '1rem' 
       }}>
         {task.estimatedHours && <span>⏱️ {task.estimatedHours}h</span>}
@@ -813,8 +809,8 @@ function TaskCard({ task, isCompleted, onComplete, index }) {
               fontSize: '0.75rem',
               padding: '0.25rem 0.5rem',
               borderRadius: '8px',
-              background: 'rgba(255,255,255,0.1)',
-              color: '#fff',
+              background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              color: currentColors.text,
             }}>
               #{tag}
             </span>
@@ -832,11 +828,12 @@ function TaskCard({ task, isCompleted, onComplete, index }) {
           ...styles.button,
           background: isCompleted 
             ? "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)" 
-            : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            : (isDark ? "#4B5EAA" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"),
           boxShadow: isCompleted 
             ? "0 4px 15px rgba(56, 239, 125, 0.4)" 
-            : "0 4px 15px rgba(102, 126, 234, 0.4)",
+            : (isDark ? "0 4px 15px rgba(75, 94, 170, 0.4)" : "0 4px 15px rgba(102, 126, 234, 0.4)"),
           transform: `scale(${buttonScale})`,
+          color: "white",
         }}
       >
         {isCompleted ? (
@@ -853,6 +850,9 @@ function TaskCard({ task, isCompleted, onComplete, index }) {
 }
 
 export default function Home() {
+  const { theme, toggle } = useContext(ThemeContext);
+  const isDark = theme === 'dark';
+  
   const [allTasksList, setAllTasksList] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [completedTasks, setCompletedTasks] = useState({});
@@ -898,13 +898,39 @@ export default function Home() {
     }
   }, [completedTasks, tasks]);
 
+  const colors = {
+    light: {
+      background: '#f5f5f5',
+      text: '#111',
+      cardBg: '#ffffff',
+      cardBorder: '#e0e0e0',
+      cardShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+      progressBg: 'rgba(255,255,255,0.1)',
+      progressBar: 'linear-gradient(90deg, #667eea, #764ba2, #f093fb)',
+      resetButtonBg: 'linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))',
+      resetButtonBorder: '2px solid rgba(255,255,255,0.3)',
+      resetButtonText: '#111',
+    },
+    dark: {
+      background: '#0f1115',
+      text: '#e5e7eb',
+      cardBg: '#111827',
+      cardBorder: '#1f2937',
+      cardShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+      progressBg: 'rgba(255,255,255,0.1)',
+      progressBar: 'linear-gradient(90deg, #4B5EAA, #667eea, #764ba2)',
+      resetButtonBg: 'linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05))',
+      resetButtonBorder: '2px solid rgba(255,255,255,0.2)',
+      resetButtonText: '#e5e7eb',
+    }
+  };
+
+  const currentColors = isDark ? colors.dark : colors.light;
+
   if (!mounted) {
     return (
       <div style={{
-        backgroundImage: "url('https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1920')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed",
+        background: currentColors.background,
         minHeight: "100vh",
         padding: "2rem",
         position: "relative",
@@ -1021,7 +1047,7 @@ export default function Home() {
               Organize your learning journey
             </div>
           </div>
-          <div style={{ color: "#fff", textAlign: "center", fontSize: "1.2rem" }}>Loading tasks...</div>
+          <div style={{ color: currentColors.text, textAlign: "center", fontSize: "1.2rem" }}>Loading tasks...</div>
         </main>
       </div>
     );
@@ -1029,10 +1055,7 @@ export default function Home() {
 
   return (
     <div style={{
-      backgroundImage: "url('https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1920')",
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundAttachment: "fixed",
+      background: currentColors.background,
       minHeight: "100vh",
       padding: "2rem",
       position: "relative",
@@ -1130,6 +1153,35 @@ export default function Home() {
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+      <button
+        onClick={toggle}
+        aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+        style={{
+          position: "fixed",
+          top: "1rem",
+          right: "1rem",
+          background: isDark 
+            ? "linear-gradient(135deg, #4B5EAA 0%, #667eea 100%)" 
+            : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          color: "white",
+          border: "none",
+          borderRadius: "50%",
+          width: "40px",
+          height: "40px",
+          cursor: "pointer",
+          zIndex: 1000,
+          transition: "all 0.3s ease",
+          fontSize: "1.2rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: isDark
+            ? "0 4px 15px rgba(75, 94, 170, 0.4)"
+            : "0 4px 15px rgba(102, 126, 234, 0.4)",
+        }}
+      >
+        {isDark ? '☀️' : '🌙'}
+      </button>
       <main
         style={{
           maxWidth: 720,
@@ -1139,19 +1191,19 @@ export default function Home() {
           zIndex: 1,
         }}
       >
-        <div style={{
-          background: "rgba(255, 255, 255, 0.15)",
-          backdropFilter: "blur(20px)",
-          border: "1px solid rgba(255, 255, 255, 0.3)",
-          padding: "2rem 3rem",
-          borderRadius: 20,
-          boxShadow: "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
-          marginBottom: "2rem",
-          display: "inline-block",
-          animation: "float 6s ease-in-out infinite",
-        }}>
+      <div style={{
+        background: "rgba(255, 255, 255, 0.15)",
+        backdropFilter: "blur(20px)",
+        border: "1px solid rgba(255, 255, 255, 0.3)",
+        padding: "2rem 3rem",
+        borderRadius: 20,
+        boxShadow: isDark ? "0 8px 32px 0 rgba(0, 0, 0, 0.37)" : "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
+        marginBottom: "2rem",
+        display: "inline-block",
+        animation: "float 6s ease-in-out infinite",
+      }}>
           <h1 style={{ 
-            color: "#ffffff",
+            color: currentColors.text,
             textAlign: "center", 
             fontSize: "3.5rem", 
             fontWeight: "800",
@@ -1166,7 +1218,7 @@ export default function Home() {
           </h1>
         </div>
         <div style={{
-          background: "rgba(255,255,255,0.15)",
+          background: currentColors.progressBg,
           backdropFilter: "blur(15px)",
           border: "1px solid rgba(255,255,255,0.3)",
           padding: "1rem 2rem",
@@ -1177,23 +1229,23 @@ export default function Home() {
           marginBottom: "2rem",
           boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
         }}>
-          <div style={{ color: "white", fontWeight: "600" }}>
+          <div style={{ color: currentColors.text, fontWeight: "600" }}>
             {Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length} of {tasks.length} tasks completed
           </div>
           <div style={{
             width: "120px",
             height: "8px",
-            background: "rgba(255,255,255,0.1)",
+            background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
             borderRadius: "4px",
             overflow: "hidden",
           }}>
             <div style={{
               height: "100%",
               width: `${(Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length / tasks.length) * 100}%`,
-              background: "linear-gradient(90deg, #667eea, #764ba2, #f093fb)",
+              background: currentColors.progressBar,
               borderRadius: "4px",
               transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-              boxShadow: "0 0 10px rgba(102,126,234,0.3)",
+              boxShadow: isDark ? "0 0 10px rgba(75, 94, 170, 0.3)" : "0 0 10px rgba(102,126,234,0.3)",
             }}></div>
           </div>
         </div>
@@ -1206,12 +1258,14 @@ export default function Home() {
             setTasks(sortedTasks.slice(0, TASKS_PER_PAGE));
           }}
           style={{
-            background: "linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05))",
+            background: currentColors.resetButtonBg,
             backdropFilter: "blur(20px)",
-            border: "2px solid rgba(255,255,255,0.3)",
-            color: "white",
+            border: currentColors.resetButtonBorder,
+            color: currentColors.resetButtonText,
             fontWeight: "600",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.3)",
+            boxShadow: isDark 
+              ? "0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)" 
+              : "0 4px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.3)",
             borderRadius: 12,
             padding: "16px 32px",
             cursor: "pointer",
@@ -1220,10 +1274,14 @@ export default function Home() {
             fontSize: "1rem",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.boxShadow = "0 0 30px rgba(255,255,255,0.4), inset 0 1px 0 rgba(255,255,255,0.3)";
+            e.currentTarget.style.boxShadow = isDark 
+              ? "0 0 30px rgba(255,255,255,0.2), inset 0 1px 0 rgba(255,255,255,0.1)" 
+              : "0 0 30px rgba(255,255,255,0.4), inset 0 1px 0 rgba(255,255,255,0.3)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.3)";
+            e.currentTarget.style.boxShadow = isDark 
+              ? "0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)" 
+              : "0 4px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.3)";
           }}
         >
           Reset All Tasks
@@ -1238,6 +1296,8 @@ export default function Home() {
                 setCompletedTasks(prev => ({ ...prev, [task.id]: true }));
               }}
               index={i}
+              isDark={isDark}
+              colors={colors}
             />
           </div>
         ))}
