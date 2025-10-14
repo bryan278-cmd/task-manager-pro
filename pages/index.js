@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useRef } from "react";
 import { ThemeContext } from "./_app";
 
 // Priority scoring system
@@ -854,10 +854,14 @@ export default function Home() {
   const isDark = theme === 'dark';
   
   const [allTasksList, setAllTasksList] = useState([]);
-  const [tasks, setTasks] = useState([]);
+  const [displayedTasks, setDisplayedTasks] = useState([]);
   const [completedTasks, setCompletedTasks] = useState({});
   const [mounted, setMounted] = useState(false);
-  const TASKS_PER_PAGE = 4;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const sentinelRef = useRef(null);
+  const TASKS_PER_PAGE = 10;
 
   useEffect(() => {
     // Load completed tasks from localStorage
@@ -869,9 +873,15 @@ export default function Home() {
     // Sort tasks by priority
     const sortedTasks = sortTasksByPriority(EXTENDED_TASKS);
     
-    // Initialize with first page
+    // Store all tasks
     setAllTasksList(sortedTasks);
-    setTasks(sortedTasks.slice(0, TASKS_PER_PAGE));
+    
+    // Display only first page
+    setDisplayedTasks(sortedTasks.slice(0, TASKS_PER_PAGE));
+    
+    // Set hasMore if there are more pages
+    setHasMore(sortedTasks.length > TASKS_PER_PAGE);
+    
     setMounted(true);
   }, []);
 
@@ -882,9 +892,9 @@ export default function Home() {
 
   useEffect(() => {
     // Trigger confetti when all tasks are completed
-    if (Object.keys(completedTasks).length === tasks.length && tasks.length > 0) {
+    if (Object.keys(completedTasks).length === displayedTasks.length && displayedTasks.length > 0) {
       // Check if all current tasks are completed
-      const allCompleted = tasks.every(task => completedTasks[task.id]);
+      const allCompleted = displayedTasks.every(task => completedTasks[task.id]);
       if (allCompleted) {
         // Trigger confetti
         if (typeof window !== 'undefined' && window.confetti) {
@@ -896,7 +906,58 @@ export default function Home() {
         }
       }
     }
-  }, [completedTasks, tasks]);
+  }, [completedTasks, displayedTasks]);
+
+  // Setup IntersectionObserver for infinite scroll
+  useEffect(() => {
+    // Don't observe if not mounted or no more tasks
+    if (!mounted || !hasMore || isLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // When sentinel enters viewport, load more
+        if (entries[0].isIntersecting) {
+          loadMoreTasks();
+        }
+      },
+      {
+        root: null, // viewport
+        rootMargin: '200px', // trigger 200px before reaching sentinel
+        threshold: 0.1
+      }
+    );
+
+    if (sentinelRef.current) {
+      observer.observe(sentinelRef.current);
+    }
+
+    return () => {
+      if (sentinelRef.current) {
+        observer.unobserve(sentinelRef.current);
+      }
+    };
+  }, [mounted, hasMore, isLoadingMore, currentPage]);
+
+  // Load more tasks function
+  const loadMoreTasks = () => {
+    setIsLoadingMore(true);
+    
+    // Simulate async load (remove timeout in production if using real API)
+    setTimeout(() => {
+      const startIndex = currentPage * TASKS_PER_PAGE;
+      const endIndex = startIndex + TASKS_PER_PAGE;
+      const nextPageTasks = allTasksList.slice(startIndex, endIndex);
+      
+      if (nextPageTasks.length === 0) {
+        setHasMore(false);
+      } else {
+        setDisplayedTasks(prev => [...prev, ...nextPageTasks]);
+        setCurrentPage(prev => prev + 1);
+      }
+      
+      setIsLoadingMore(false);
+    }, 300); // <100ms in production
+  };
 
   const colors = {
     light: {
@@ -1153,6 +1214,11 @@ export default function Home() {
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+      <style jsx global>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
       <button
         onClick={toggle}
         aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
@@ -1230,7 +1296,7 @@ export default function Home() {
           boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
         }}>
           <div style={{ color: currentColors.text, fontWeight: "600" }}>
-            {Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length} of {tasks.length} tasks completed
+            {Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length} of {displayedTasks.length} tasks completed
           </div>
           <div style={{
             width: "120px",
@@ -1241,7 +1307,7 @@ export default function Home() {
           }}>
             <div style={{
               height: "100%",
-              width: `${(Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length / tasks.length) * 100}%`,
+              width: `${(Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length / displayedTasks.length) * 100}%`,
               background: currentColors.progressBar,
               borderRadius: "4px",
               transition: "width 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -1255,7 +1321,9 @@ export default function Home() {
             setCompletedTasks({});
             const sortedTasks = sortTasksByPriority(EXTENDED_TASKS);
             setAllTasksList(sortedTasks);
-            setTasks(sortedTasks.slice(0, TASKS_PER_PAGE));
+            setDisplayedTasks(sortedTasks.slice(0, TASKS_PER_PAGE));
+            setCurrentPage(1);
+            setHasMore(sortedTasks.length > TASKS_PER_PAGE);
           }}
           style={{
             background: currentColors.resetButtonBg,
@@ -1286,7 +1354,7 @@ export default function Home() {
         >
           Reset All Tasks
         </button>
-        {tasks.map((task, i) => (
+        {displayedTasks.map((task, i) => (
           <div key={task.id} style={{ animation: "fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards", opacity: 0, animationDelay: `${i * 0.1}s` }}>
             <TaskCard
               task={task}
@@ -1301,6 +1369,46 @@ export default function Home() {
             />
           </div>
         ))}
+        {/* Loading spinner */}
+        {isLoadingMore && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            padding: '2rem',
+            gap: '1rem',
+            alignItems: 'center'
+          }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              border: '3px solid rgba(255,255,255,0.2)',
+              borderTop: '3px solid #00d9ff',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite'
+            }}></div>
+            <span style={{ color: 'rgba(255,255,255,0.7)' }}>
+              Loading more tasks...
+            </span>
+          </div>
+        )}
+
+        {/* Intersection observer sentinel */}
+        <div 
+          ref={sentinelRef} 
+          style={{ height: '20px', margin: '1rem 0' }}
+        />
+
+        {/* End message */}
+        {!hasMore && displayedTasks.length > 0 && (
+          <div style={{
+            textAlign: 'center',
+            padding: '2rem',
+            color: 'rgba(255,255,255,0.6)',
+            fontSize: '0.9rem'
+          }}>
+            ✓ All {displayedTasks.length} tasks loaded
+          </div>
+        )}
       </main>
     </div>
   );
