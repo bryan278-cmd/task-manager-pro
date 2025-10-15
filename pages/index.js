@@ -1,6 +1,20 @@
 import { useState, useEffect, useContext, useRef } from "react";
 import { ThemeContext } from "./_app";
 
+// === Persistencia: utilidades ===
+function safeParse(json, fallback) {
+  try { return JSON.parse(json); } catch { return fallback; }
+}
+function loadFromStorage(key, defaultValue) {
+  if (typeof window === 'undefined') return defaultValue;
+  const raw = window.localStorage.getItem(key);
+  return raw == null ? defaultValue : safeParse(raw, defaultValue);
+}
+function saveToStorage(key, value) {
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
 // Priority scoring system
 const PRIORITY_WEIGHTS = {
   CRITICAL: 100,
@@ -85,6 +99,23 @@ function getCategoryColor(category) {
     Testing: '#95e1d3'
   };
   return colors[category] || '#a0a0a0';
+}
+
+// Apply filters to tasks
+function applyFilters(tasks, {status, category, priority}, completedMap) {
+  return tasks.filter(task => {
+    // Status filter
+    if (status === 'Active' && completedMap[task.id]) return false;
+    if (status === 'Completed' && !completedMap[task.id]) return false;
+    
+    // Category filter
+    if (category !== 'All' && task.category !== category) return false;
+    
+    // Priority filter
+    if (priority !== 'All' && task.priority !== priority) return false;
+    
+    return true;
+  });
 }
 
 const styles = {
@@ -818,33 +849,56 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
         </div>
       )}
       
-      {/* Button */}
-      <button
-        onClick={handleClick}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        style={{
-          ...styles.button,
-          background: isCompleted 
-            ? "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)" 
-            : (isDark ? "#4B5EAA" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"),
-          boxShadow: isCompleted 
-            ? "0 4px 15px rgba(56, 239, 125, 0.4)" 
-            : (isDark ? "0 4px 15px rgba(75, 94, 170, 0.4)" : "0 4px 15px rgba(102, 126, 234, 0.4)"),
-          transform: `scale(${buttonScale})`,
-          color: "white",
-        }}
-      >
-        {isCompleted ? (
-          <span style={{ 
-            animation: isAnimating ? "checkmarkScale 0.4s ease" : "none",
-            display: "inline-block"
-          }}>
-            Completed ✅
-          </span>
-        ) : "Mark as done"}
-      </button>
+      {/* Buttons */}
+      <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+        <button
+          onClick={handleClick}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          style={{
+            ...styles.button,
+            background: isCompleted 
+              ? "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)" 
+              : (isDark ? "#4B5EAA" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"),
+            boxShadow: isCompleted 
+              ? "0 4px 15px rgba(56, 239, 125, 0.4)" 
+              : (isDark ? "0 4px 15px rgba(75, 94, 170, 0.4)" : "0 4px 15px rgba(102, 126, 234, 0.4)"),
+            transform: `scale(${buttonScale})`,
+            color: "white",
+            flex: 1,
+          }}
+        >
+          {isCompleted ? (
+            <span style={{ 
+              animation: isAnimating ? "checkmarkScale 0.4s ease" : "none",
+              display: "inline-block"
+            }}>
+              Completed ✅
+            </span>
+          ) : "Mark as done"}
+        </button>
+        
+        {isCompleted && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              // Mark as undone - call the onComplete function with false to toggle state
+              onComplete(false);
+            }}
+            style={{
+              ...styles.button,
+              background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+              boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
+              color: currentColors.text,
+              width: "auto",
+              padding: "12px 16px",
+            }}
+          >
+            Undo
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -860,15 +914,22 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [priorityFilter, setPriorityFilter] = useState('All');
   const sentinelRef = useRef(null);
   const TASKS_PER_PAGE = 10;
 
   useEffect(() => {
-    // Load completed tasks from localStorage
-    const savedCompletedTasks = localStorage.getItem('completedTasks');
-    if (savedCompletedTasks) {
-      setCompletedTasks(JSON.parse(savedCompletedTasks));
-    }
+    // Load completed tasks from localStorage using safe utilities
+    const savedCompletedTasks = loadFromStorage('tmp_completed_v1', {});
+    setCompletedTasks(savedCompletedTasks);
+    
+    // Load filters from localStorage using safe utilities
+    const savedFilters = loadFromStorage('tmp_filters_v1', {});
+    setStatusFilter(savedFilters.statusFilter || 'All');
+    setCategoryFilter(savedFilters.categoryFilter || 'All');
+    setPriorityFilter(savedFilters.priorityFilter || 'All');
     
     // Sort tasks by priority
     const sortedTasks = sortTasksByPriority(EXTENDED_TASKS);
@@ -876,19 +937,39 @@ export default function Home() {
     // Store all tasks
     setAllTasksList(sortedTasks);
     
-    // Display only first page
-    setDisplayedTasks(sortedTasks.slice(0, TASKS_PER_PAGE));
-    
-    // Set hasMore if there are more pages
-    setHasMore(sortedTasks.length > TASKS_PER_PAGE);
-    
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    // Save completed tasks to localStorage
-    localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+    // Save completed tasks to localStorage using safe utility
+    saveToStorage('tmp_completed_v1', completedTasks);
   }, [completedTasks]);
+
+  useEffect(() => {
+    // Save filters to localStorage using safe utility
+    const filters = {
+      statusFilter,
+      categoryFilter,
+      priorityFilter
+    };
+    saveToStorage('tmp_filters_v1', filters);
+  }, [statusFilter, categoryFilter, priorityFilter]);
+
+  // Apply filters when filters or completed tasks change
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const filteredTasks = applyFilters(allTasksList, {
+      status: statusFilter,
+      category: categoryFilter,
+      priority: priorityFilter
+    }, completedTasks);
+    
+    // Reset pagination and display first page of filtered tasks
+    setCurrentPage(1);
+    setDisplayedTasks(filteredTasks.slice(0, TASKS_PER_PAGE));
+    setHasMore(filteredTasks.length > TASKS_PER_PAGE);
+  }, [statusFilter, categoryFilter, priorityFilter, completedTasks, mounted, allTasksList]);
 
   useEffect(() => {
     // Trigger confetti when all tasks are completed
@@ -942,11 +1023,18 @@ export default function Home() {
   const loadMoreTasks = () => {
     setIsLoadingMore(true);
     
+    // Apply current filters to get filtered task list
+    const filteredTasks = applyFilters(allTasksList, {
+      status: statusFilter,
+      category: categoryFilter,
+      priority: priorityFilter
+    }, completedTasks);
+    
     // Simulate async load (remove timeout in production if using real API)
     setTimeout(() => {
       const startIndex = currentPage * TASKS_PER_PAGE;
       const endIndex = startIndex + TASKS_PER_PAGE;
-      const nextPageTasks = allTasksList.slice(startIndex, endIndex);
+      const nextPageTasks = filteredTasks.slice(startIndex, endIndex);
       
       if (nextPageTasks.length === 0) {
         setHasMore(false);
@@ -1317,13 +1405,27 @@ export default function Home() {
         </div>
         <button 
           onClick={() => {
-            localStorage.removeItem('completedTasks');
+            // Reset completed tasks and save empty object
             setCompletedTasks({});
-            const sortedTasks = sortTasksByPriority(EXTENDED_TASKS);
-            setAllTasksList(sortedTasks);
-            setDisplayedTasks(sortedTasks.slice(0, TASKS_PER_PAGE));
+            saveToStorage('tmp_completed_v1', {});
+            // Reset filters to default and save default filter values
+            setStatusFilter('All');
+            setCategoryFilter('All');
+            setPriorityFilter('All');
+            saveToStorage('tmp_filters_v1', {
+              statusFilter: 'All',
+              categoryFilter: 'All',
+              priorityFilter: 'All'
+            });
+            // Apply filters and reset pagination
+            const filteredTasks = applyFilters(allTasksList, {
+              status: 'All',
+              category: 'All',
+              priority: 'All'
+            }, {});
             setCurrentPage(1);
-            setHasMore(sortedTasks.length > TASKS_PER_PAGE);
+            setDisplayedTasks(filteredTasks.slice(0, TASKS_PER_PAGE));
+            setHasMore(filteredTasks.length > TASKS_PER_PAGE);
           }}
           style={{
             background: currentColors.resetButtonBg,
@@ -1354,21 +1456,186 @@ export default function Home() {
         >
           Reset All Tasks
         </button>
-        {displayedTasks.map((task, i) => (
-          <div key={task.id} style={{ animation: "fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards", opacity: 0, animationDelay: `${i * 0.1}s` }}>
-            <TaskCard
-              task={task}
-              isCompleted={completedTasks[task.id] || false}
-              onComplete={() => {
-                console.log(`${task.title} completed!`);
-                setCompletedTasks(prev => ({ ...prev, [task.id]: true }));
+        {/* Filter bar */}
+        <div style={{
+          background: currentColors.progressBg,
+          backdropFilter: "blur(15px)",
+          border: "1px solid rgba(255,255,255,0.3)",
+          padding: "1rem",
+          borderRadius: "12px",
+          display: "flex",
+          gap: "1rem",
+          marginBottom: "2rem",
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <label style={{ 
+              color: currentColors.text, 
+              fontSize: "0.9rem", 
+              fontWeight: "600",
+              opacity: 0.8 
+            }}>
+              Status
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                // Reset pagination and apply new filters
+                const filteredTasks = applyFilters(allTasksList, {
+                  status: e.target.value,
+                  category: categoryFilter,
+                  priority: priorityFilter
+                }, completedTasks);
+                setCurrentPage(1);
+                setDisplayedTasks(filteredTasks.slice(0, TASKS_PER_PAGE));
+                setHasMore(filteredTasks.length > TASKS_PER_PAGE);
               }}
-              index={i}
-              isDark={isDark}
-              colors={colors}
-            />
+              aria-label="Filter tasks by status"
+              style={{
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: "8px",
+                padding: "0.5rem 1rem",
+                color: currentColors.text,
+                fontSize: "0.9rem",
+                fontWeight: "500",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <option value="All">All</option>
+              <option value="Active">Active</option>
+              <option value="Completed">Completed</option>
+            </select>
           </div>
-        ))}
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <label style={{ 
+              color: currentColors.text, 
+              fontSize: "0.9rem", 
+              fontWeight: "600",
+              opacity: 0.8 
+            }}>
+              Category
+            </label>
+            <select
+              value={categoryFilter}
+              onChange={(e) => {
+                setCategoryFilter(e.target.value);
+                // Reset pagination and apply new filters
+                const filteredTasks = applyFilters(allTasksList, {
+                  status: statusFilter,
+                  category: e.target.value,
+                  priority: priorityFilter
+                }, completedTasks);
+                setCurrentPage(1);
+                setDisplayedTasks(filteredTasks.slice(0, TASKS_PER_PAGE));
+                setHasMore(filteredTasks.length > TASKS_PER_PAGE);
+              }}
+              aria-label="Filter tasks by category"
+              style={{
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: "8px",
+                padding: "0.5rem 1rem",
+                color: currentColors.text,
+                fontSize: "0.9rem",
+                fontWeight: "500",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <option value="All">All</option>
+              <option value="Backend">Backend</option>
+              <option value="Frontend">Frontend</option>
+              <option value="DevOps">DevOps</option>
+              <option value="Database">Database</option>
+              <option value="Security">Security</option>
+              <option value="Testing">Testing</option>
+            </select>
+          </div>
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <label style={{ 
+              color: currentColors.text, 
+              fontSize: "0.9rem", 
+              fontWeight: "600",
+              opacity: 0.8 
+            }}>
+              Priority
+            </label>
+            <select
+              value={priorityFilter}
+              onChange={(e) => {
+                setPriorityFilter(e.target.value);
+                // Reset pagination and apply new filters
+                const filteredTasks = applyFilters(allTasksList, {
+                  status: statusFilter,
+                  category: categoryFilter,
+                  priority: e.target.value
+                }, completedTasks);
+                setCurrentPage(1);
+                setDisplayedTasks(filteredTasks.slice(0, TASKS_PER_PAGE));
+                setHasMore(filteredTasks.length > TASKS_PER_PAGE);
+              }}
+              aria-label="Filter tasks by priority"
+              style={{
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: "8px",
+                padding: "0.5rem 1rem",
+                color: currentColors.text,
+                fontSize: "0.9rem",
+                fontWeight: "500",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <option value="All">All</option>
+              <option value="CRITICAL">CRITICAL</option>
+              <option value="HIGH">HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
+          </div>
+        </div>
+        {displayedTasks.length === 0 ? (
+          <div style={{
+            textAlign: 'center',
+            padding: '2rem',
+            color: 'rgba(255,255,255,0.6)',
+            fontSize: '1.1rem',
+            fontStyle: 'italic'
+          }}>
+            No tasks match your current filters
+          </div>
+        ) : (
+          displayedTasks.map((task, i) => (
+            <div key={task.id} style={{ animation: "fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards", opacity: 0, animationDelay: `${i * 0.1}s` }}>
+              <TaskCard
+                task={task}
+                isCompleted={completedTasks[task.id] || false}
+                onComplete={(undo = true) => {
+                  if (undo) {
+                    // Mark as done
+                    console.log(`${task.title} completed!`);
+                    setCompletedTasks(prev => ({ ...prev, [task.id]: true }));
+                  } else {
+                    // Mark as undone
+                    console.log(`${task.title} undone!`);
+                    setCompletedTasks(prev => {
+                      const newCompletedTasks = { ...prev };
+                      delete newCompletedTasks[task.id];
+                      return newCompletedTasks;
+                    });
+                  }
+                }}
+                index={i}
+                isDark={isDark}
+                colors={colors}
+              />
+            </div>
+          ))
+        )}
         {/* Loading spinner */}
         {isLoadingMore && (
           <div style={{
