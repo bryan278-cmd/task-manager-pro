@@ -732,13 +732,18 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
   const [isHovered, setIsHovered] = useState(false);
   const [buttonScale, setButtonScale] = useState(1);
   const [isAnimating, setIsAnimating] = useState(false);
+  const buttonRef = useRef(null);
 
   const handleClick = () => {
     if (!isCompleted) {
       setIsAnimating(true);
       onComplete();
       // Reset animation state after duration
-      setTimeout(() => setIsAnimating(false), 400);
+      setTimeout(() => {
+        setIsAnimating(false);
+        // Restore focus to the button after state change
+        buttonRef.current?.focus();
+      }, 400);
     }
   };
 
@@ -749,7 +754,11 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
         setIsAnimating(true);
         onComplete();
         // Reset animation state after duration
-        setTimeout(() => setIsAnimating(false), 400);
+        setTimeout(() => {
+          setIsAnimating(false);
+          // Restore focus to the button after state change
+          buttonRef.current?.focus();
+        }, 400);
       }
     }
   };
@@ -816,7 +825,7 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
       {task.description && (
         <p style={{ 
           fontSize: '0.9rem', 
-          color: isDark ? 'rgba(229, 231, 235, 0.7)' : 'rgba(17, 17, 17, 0.7)',
+          color: isDark ? 'rgba(229, 231, 235, 0.8)' : 'rgba(17, 17, 17, 0.8)',
           marginBottom: '0.75rem',
           marginTop: '0.5rem',
         }}>
@@ -829,7 +838,7 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
         display: 'flex', 
         gap: '1rem', 
         fontSize: '0.85rem', 
-        color: isDark ? 'rgba(229, 231, 235, 0.6)' : 'rgba(17, 17, 17, 0.6)',
+        color: isDark ? 'rgba(229, 231, 235, 0.8)' : 'rgba(17, 17, 17, 0.8)',
         marginBottom: '1rem' 
       }}>
         {task.estimatedHours && <span>⏱️ {task.estimatedHours}h</span>}
@@ -852,7 +861,7 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
               fontSize: '0.75rem',
               padding: '0.25rem 0.5rem',
               borderRadius: '8px',
-              background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              background: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
               color: currentColors.text,
             }}>
               #{tag}
@@ -864,6 +873,7 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
       {/* Buttons */}
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
         <button
+          ref={buttonRef}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           onMouseDown={handleMouseDown}
@@ -879,7 +889,7 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
               : (isDark ? "#4B5EAA" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"),
             boxShadow: isCompleted 
               ? "0 4px 15px rgba(56, 239, 125, 0.4)" 
-              : (isDark ? "0 4px 15px rgba(75, 94, 170, 0.4)" : "0 4px 15px rgba(102, 126, 234, 0.4)"),
+              : (isDark ? "0 4px 155, 0.4)" : "0 4px 15px rgba(102, 126, 234, 0.4)"),
             transform: `scale(${buttonScale})`,
             color: "white",
             flex: 1,
@@ -944,6 +954,9 @@ export default function Home() {
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [priorityFilter, setPriorityFilter] = useState('All');
   const sentinelRef = useRef(null);
+  const categoryFilterRef = useRef(null);
+  const statusFilterRef = useRef(null);
+  const priorityFilterRef = useRef(null);
   const TASKS_PER_PAGE = 10;
 
   useEffect(() => {
@@ -1121,14 +1134,67 @@ export default function Home() {
   );
 
   if (!mounted) {
-    return (
-      <div style={{
-        background: currentColors.background,
-        minHeight: "100vh",
-        padding: "2rem",
-        position: "relative",
-        overflow: "hidden",
-      }}>
+  return (
+    <div style={{
+      background: currentColors.background,
+      minHeight: "100vh",
+      padding: "2rem",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* Skip link for keyboard navigation */}
+      <a
+        href="#main-content"
+        style={{
+          position: 'absolute',
+          top: '0.75rem',
+          left: '0.75rem',
+          zIndex: '50',
+          background: isDark ? '#ffffff' : '#000000',
+          color: isDark ? '#000000' : '#ffffff',
+          padding: '0.5rem 0.75rem',
+          borderRadius: '0.5rem',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          textDecoration: 'none',
+          fontWeight: '600',
+          clip: 'rect(0 0 0 0)',
+          clipPath: 'inset(50%)',
+          height: '1px',
+          overflow: 'hidden',
+          position: 'absolute',
+          whiteSpace: 'nowrap',
+          width: '1px',
+        }}
+        onFocus={(e) => {
+          e.target.style.clip = 'auto';
+          e.target.style.clipPath = 'none';
+          e.target.style.height = 'auto';
+          e.target.style.overflow = 'visible';
+          e.target.style.position = 'fixed';
+          e.target.style.whiteSpace = 'normal';
+          e.target.style.width = 'auto';
+        }}
+        onBlur={(e) => {
+          e.target.style.clip = 'rect(0 0 0 0)';
+          e.target.style.clipPath = 'inset(50%)';
+          e.target.style.height = '1px';
+          e.target.style.overflow = 'hidden';
+          e.target.style.position = 'absolute';
+          e.target.style.whiteSpace = 'nowrap';
+          e.target.style.width = '1px';
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.clip = 'auto';
+          e.target.style.clipPath = 'none';
+          e.target.style.height = 'auto';
+          e.target.style.overflow = 'visible';
+          e.target.style.position = 'absolute';
+          e.target.style.whiteSpace = 'normal';
+          e.target.style.width = 'auto';
+        }}
+      >
+        Skip to main content
+      </a>
         <div style={{
           position: "absolute",
           top: 0,
@@ -1350,12 +1416,16 @@ export default function Home() {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
-        /* Focus-visible styling for accessibility */
+        /* Focus-visible styling for accessibility - WCAG 2.1 AA compliant */
         button:focus-visible {
           outline: 2px solid #4B5EAA;
           outline-offset: 2px;
         }
         select:focus-visible {
+          outline: 2px solid #4B5EAA;
+          outline-offset: 2px;
+        }
+        a:focus-visible {
           outline: 2px solid #4B5EAA;
           outline-offset: 2px;
         }
@@ -1389,26 +1459,18 @@ export default function Home() {
       >
         {isDark ? '☀️' : '🌙'}
       </button>
-      <main
-        style={{
-          maxWidth: 720,
-          margin: "0 auto",
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-      <div style={{
-        background: "rgba(255, 255, 255, 0.15)",
-        backdropFilter: "blur(20px)",
-        border: "1px solid rgba(255, 255, 255, 0.3)",
-        padding: "2rem 3rem",
-        borderRadius: 20,
-        boxShadow: isDark ? "0 8px 32px 0 rgba(0, 0, 0, 0.37)" : "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
-        marginBottom: "2rem",
-        display: "inline-block",
-        animation: "float 6s ease-in-out infinite",
-      }}>
+      <header role="banner">
+        <div style={{
+          background: "rgba(255, 255, 255, 0.15)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid rgba(255, 255, 255, 0.3)",
+          padding: "2rem 3rem",
+          borderRadius: 20,
+          boxShadow: isDark ? "0 8px 32px 0 rgba(0, 0, 0, 0.37)" : "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
+          marginBottom: "2rem",
+          display: "inline-block",
+          animation: "float 6s ease-in-out infinite",
+        }}>
           <h1 style={{ 
             color: currentColors.text,
             textAlign: "center", 
@@ -1424,6 +1486,14 @@ export default function Home() {
             Welcome to Task Manager Pro
           </h1>
         </div>
+      </header>
+      <main id="main-content" role="main" style={{
+        maxWidth: 720,
+        margin: "0 auto",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        position: "relative",
+        zIndex: 1,
+      }}>
         <div style={{
           background: currentColors.progressBg,
           backdropFilter: "blur(15px)",
@@ -1479,6 +1549,8 @@ export default function Home() {
             setCurrentPage(1);
             setDisplayedTasks(filteredTasks.slice(0, TASKS_PER_PAGE));
             setHasMore(filteredTasks.length > TASKS_PER_PAGE);
+            // Move focus to category filter select after reset
+            categoryFilterRef.current?.focus();
           }}
           style={{
             background: currentColors.resetButtonBg,
@@ -1509,29 +1581,31 @@ export default function Home() {
         >
           Reset All Tasks
         </button>
-        {/* Filter bar */}
-        <div style={{
-          background: currentColors.progressBg,
-          backdropFilter: "blur(15px)",
-          border: "1px solid rgba(255,255,255,0.3)",
-          padding: "1rem",
-          borderRadius: "12px",
-          display: "flex",
-          gap: "1rem",
-          marginBottom: "2rem",
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}>
+        <nav role="navigation" aria-label="Main navigation">
+          {/* Filter bar */}
+          <div style={{
+            background: currentColors.progressBg,
+            backdropFilter: "blur(15px)",
+            border: "1px solid rgba(255,255,255,0.3)",
+            padding: "1rem",
+            borderRadius: "12px",
+            display: "flex",
+            gap: "1rem",
+            marginBottom: "2rem",
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             <label style={{ 
               color: currentColors.text, 
               fontSize: "0.9rem", 
               fontWeight: "600",
-              opacity: 0.8 
+              opacity: 1 
             }}>
               Status
             </label>
             <select
+              ref={statusFilterRef}
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
@@ -1569,11 +1643,12 @@ export default function Home() {
               color: currentColors.text, 
               fontSize: "0.9rem", 
               fontWeight: "600",
-              opacity: 0.8 
+              opacity: 1 
             }}>
               Category
             </label>
             <select
+              ref={categoryFilterRef}
               aria-label="Filtrar por categoría"
               style={{
                 background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
@@ -1604,11 +1679,12 @@ export default function Home() {
               color: currentColors.text, 
               fontSize: "0.9rem", 
               fontWeight: "600",
-              opacity: 0.8 
+              opacity: 1 
             }}>
               Priority
             </label>
             <select
+              ref={priorityFilterRef}
               aria-label="Filtrar por prioridad"
               style={{
                 background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
@@ -1651,12 +1727,15 @@ export default function Home() {
             onClick={() => {
               setCategoryFilter('All');
               setPriorityFilter('All');
+              // Move focus to category filter select after reset
+              categoryFilterRef.current?.focus();
             }}
           >
             Restablecer filtros
           </button>
           </div>
         </div>
+        </nav>
         {filteredDisplayedTasks.length === 0 ? (
           <div style={{
             textAlign: 'center',
@@ -1679,6 +1758,11 @@ export default function Home() {
                       // Mark as done
                       console.log(`${task.title} completed!`);
                       setCompletedTasks(prev => ({ ...prev, [task.id]: true }));
+                      // Announce completion via aria-live region
+                      const region = document.getElementById('a11y-status');
+                      if (region) {
+                        region.textContent = `Task "${task.title}" marked as completed`;
+                      }
                     } else {
                       // Mark as undone
                       console.log(`${task.title} undone!`);
@@ -1687,6 +1771,11 @@ export default function Home() {
                         delete newCompletedTasks[task.id];
                         return newCompletedTasks;
                       });
+                      // Announce un-completion via aria-live region
+                      const region = document.getElementById('a11y-status');
+                      if (region) {
+                        region.textContent = `Task "${task.title}" marked as not completed`;
+                      }
                     }
                   }}
                   index={i}
@@ -1697,6 +1786,15 @@ export default function Home() {
             ))}
           </ul>
         )}
+        {/* aria-live region for accessibility announcements */}
+        <div aria-live="polite" aria-atomic="true" id="a11y-status" style={{
+          position: 'absolute',
+          left: '-10000px',
+          top: 'auto',
+          width: '1px',
+          height: '1px',
+          overflow: 'hidden',
+        }}></div>
         {/* Loading spinner */}
         {isLoadingMore && (
           <div style={{
