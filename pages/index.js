@@ -742,6 +742,18 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
     }
   };
 
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault(); // Prevent double toggle behavior
+      if (!isCompleted) {
+        setIsAnimating(true);
+        onComplete();
+        // Reset animation state after duration
+        setTimeout(() => setIsAnimating(false), 400);
+      }
+    }
+  };
+
   const handleMouseDown = () => {
     setButtonScale(0.95);
   };
@@ -853,9 +865,13 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
       <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
         <button
           onClick={handleClick}
+          onKeyDown={handleKeyDown}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          aria-label={isCompleted ? "Marcar como no completada" : "Marcar como completada"}
+          aria-pressed={isCompleted}
+          tabIndex={0}
           style={{
             ...styles.button,
             background: isCompleted 
@@ -886,6 +902,16 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
               // Mark as undone - call the onComplete function with false to toggle state
               onComplete(false);
             }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                onComplete(false);
+              }
+            }}
+            aria-label="Marcar como no completada"
+            aria-pressed={true}
+            tabIndex={0}
             style={{
               ...styles.button,
               background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
@@ -1324,6 +1350,15 @@ export default function Home() {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
+        /* Focus-visible styling for accessibility */
+        button:focus-visible {
+          outline: 2px solid #4B5EAA;
+          outline-offset: 2px;
+        }
+        select:focus-visible {
+          outline: 2px solid #4B5EAA;
+          outline-offset: 2px;
+        }
       `}</style>
       <button
         onClick={toggle}
@@ -1599,27 +1634,27 @@ export default function Home() {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              aria-label="Restablecer filtros"
-              style={{
-                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                border: "1px solid rgba(255,255,255,0.3)",
-                borderRadius: "1rem",
-                padding: "0.5rem 1rem",
-                color: currentColors.text,
-                fontSize: "0.9rem",
-                fontWeight: "600",
-                backdropFilter: "blur(10px)",
-                cursor: "pointer",
-              }}
-              onClick={() => {
-                setCategoryFilter('All');
-                setPriorityFilter('All');
-              }}
-            >
-              Restablecer filtros
-            </button>
+          <button
+            type="button"
+            aria-label="Restablecer filtros"
+            style={{
+              background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              border: "1px solid rgba(255,255,255,0.3)",
+              borderRadius: "1rem",
+              padding: "0.5rem 1rem",
+              color: currentColors.text,
+              fontSize: "0.9rem",
+              fontWeight: "600",
+              backdropFilter: "blur(10px)",
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              setCategoryFilter('All');
+              setPriorityFilter('All');
+            }}
+          >
+            Restablecer filtros
+          </button>
           </div>
         </div>
         {filteredDisplayedTasks.length === 0 ? (
@@ -1633,32 +1668,34 @@ export default function Home() {
             No tasks match your current filters
           </div>
         ) : (
-          filteredDisplayedTasks.map((task, i) => (
-            <div key={task.id} style={{ animation: "fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards", opacity: 0, animationDelay: `${i * 0.1}s` }}>
-              <TaskCard
-                task={task}
-                isCompleted={completedTasks[task.id] || false}
-                onComplete={(undo = true) => {
-                  if (undo) {
-                    // Mark as done
-                    console.log(`${task.title} completed!`);
-                    setCompletedTasks(prev => ({ ...prev, [task.id]: true }));
-                  } else {
-                    // Mark as undone
-                    console.log(`${task.title} undone!`);
-                    setCompletedTasks(prev => {
-                      const newCompletedTasks = { ...prev };
-                      delete newCompletedTasks[task.id];
-                      return newCompletedTasks;
-                    });
-                  }
-                }}
-                index={i}
-                isDark={isDark}
-                colors={colors}
-              />
-            </div>
-          ))
+          <ul role="list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {filteredDisplayedTasks.map((task, i) => (
+              <li key={task.id} role="listitem" style={{ animation: "fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards", opacity: 0, animationDelay: `${i * 0.1}s` }}>
+                <TaskCard
+                  task={task}
+                  isCompleted={completedTasks[task.id] || false}
+                  onComplete={(undo = true) => {
+                    if (undo) {
+                      // Mark as done
+                      console.log(`${task.title} completed!`);
+                      setCompletedTasks(prev => ({ ...prev, [task.id]: true }));
+                    } else {
+                      // Mark as undone
+                      console.log(`${task.title} undone!`);
+                      setCompletedTasks(prev => {
+                        const newCompletedTasks = { ...prev };
+                        delete newCompletedTasks[task.id];
+                        return newCompletedTasks;
+                      });
+                    }
+                  }}
+                  index={i}
+                  isDark={isDark}
+                  colors={colors}
+                />
+              </li>
+            ))}
+          </ul>
         )}
         {/* Loading spinner */}
         {isLoadingMore && (
