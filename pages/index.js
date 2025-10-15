@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useRef } from "react";
+import { useState, useEffect, useContext, useRef, useMemo } from "react";
 import { ThemeContext } from "./_app";
 
 // === Persistencia: utilidades ===
@@ -1076,6 +1076,24 @@ export default function Home() {
 
   const currentColors = isDark ? colors.dark : colors.light;
 
+  // Helper para filtrar tareas en el render
+  const getFilteredTasks = (tasks) => {
+    if (!tasks) return [];
+    let filtered = tasks;
+    if (categoryFilter && categoryFilter !== 'All') {
+      filtered = filtered.filter(t => t.category === categoryFilter);
+    }
+    if (priorityFilter && priorityFilter !== 'All') {
+      filtered = filtered.filter(t => t.priority === priorityFilter);
+    }
+    return filtered;
+  };
+
+  const filteredDisplayedTasks = useMemo(
+    () => getFilteredTasks(displayedTasks),
+    [displayedTasks, categoryFilter, priorityFilter]
+  );
+
   if (!mounted) {
     return (
       <div style={{
@@ -1510,7 +1528,8 @@ export default function Home() {
             </select>
           </div>
           
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          {/* === Filtros === */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", flex: 1 }}>
             <label style={{ 
               color: currentColors.text, 
               fontSize: "0.9rem", 
@@ -1520,42 +1539,32 @@ export default function Home() {
               Category
             </label>
             <select
-              value={categoryFilter}
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
-                // Reset pagination and apply new filters
-                const filteredTasks = applyFilters(allTasksList, {
-                  status: statusFilter,
-                  category: e.target.value,
-                  priority: priorityFilter
-                }, completedTasks);
-                setCurrentPage(1);
-                setDisplayedTasks(filteredTasks.slice(0, TASKS_PER_PAGE));
-                setHasMore(filteredTasks.length > TASKS_PER_PAGE);
-              }}
-              aria-label="Filter tasks by category"
+              aria-label="Filtrar por categoría"
               style={{
                 background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                 border: "1px solid rgba(255,255,255,0.3)",
-                borderRadius: "8px",
+                borderRadius: "1rem",
                 padding: "0.5rem 1rem",
                 color: currentColors.text,
                 fontSize: "0.9rem",
                 fontWeight: "500",
                 backdropFilter: "blur(10px)",
               }}
+              value={categoryFilter === 'All' ? '' : categoryFilter}
+              onChange={(e) =>
+                setCategoryFilter(e.target.value || 'All')
+              }
             >
-              <option value="All">All</option>
+              <option value="">Todas las categorías</option>
               <option value="Backend">Backend</option>
               <option value="Frontend">Frontend</option>
               <option value="DevOps">DevOps</option>
               <option value="Database">Database</option>
               <option value="Security">Security</option>
-              <option value="Testing">Testing</option>
             </select>
           </div>
-          
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", flex: 1 }}>
             <label style={{ 
               color: currentColors.text, 
               fontSize: "0.9rem", 
@@ -1565,40 +1574,55 @@ export default function Home() {
               Priority
             </label>
             <select
-              value={priorityFilter}
-              onChange={(e) => {
-                setPriorityFilter(e.target.value);
-                // Reset pagination and apply new filters
-                const filteredTasks = applyFilters(allTasksList, {
-                  status: statusFilter,
-                  category: categoryFilter,
-                  priority: e.target.value
-                }, completedTasks);
-                setCurrentPage(1);
-                setDisplayedTasks(filteredTasks.slice(0, TASKS_PER_PAGE));
-                setHasMore(filteredTasks.length > TASKS_PER_PAGE);
-              }}
-              aria-label="Filter tasks by priority"
+              aria-label="Filtrar por prioridad"
               style={{
                 background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                 border: "1px solid rgba(255,255,255,0.3)",
-                borderRadius: "8px",
+                borderRadius: "1rem",
                 padding: "0.5rem 1rem",
                 color: currentColors.text,
                 fontSize: "0.9rem",
                 fontWeight: "500",
                 backdropFilter: "blur(10px)",
               }}
+              value={priorityFilter === 'All' ? '' : priorityFilter}
+              onChange={(e) =>
+                setPriorityFilter(e.target.value || 'All')
+              }
             >
-              <option value="All">All</option>
+              <option value="">Todas las prioridades</option>
               <option value="CRITICAL">CRITICAL</option>
               <option value="HIGH">HIGH</option>
               <option value="MEDIUM">MEDIUM</option>
               <option value="LOW">LOW</option>
             </select>
           </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              aria-label="Restablecer filtros"
+              style={{
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: "1rem",
+                padding: "0.5rem 1rem",
+                color: currentColors.text,
+                fontSize: "0.9rem",
+                fontWeight: "600",
+                backdropFilter: "blur(10px)",
+                cursor: "pointer",
+              }}
+              onClick={() => {
+                setCategoryFilter('All');
+                setPriorityFilter('All');
+              }}
+            >
+              Restablecer filtros
+            </button>
+          </div>
         </div>
-        {displayedTasks.length === 0 ? (
+        {filteredDisplayedTasks.length === 0 ? (
           <div style={{
             textAlign: 'center',
             padding: '2rem',
@@ -1609,7 +1633,7 @@ export default function Home() {
             No tasks match your current filters
           </div>
         ) : (
-          displayedTasks.map((task, i) => (
+          filteredDisplayedTasks.map((task, i) => (
             <div key={task.id} style={{ animation: "fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards", opacity: 0, animationDelay: `${i * 0.1}s` }}>
               <TaskCard
                 task={task}
