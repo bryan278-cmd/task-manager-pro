@@ -856,6 +856,13 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleClick();
+            }
+          }}
+          aria-label={isCompleted ? "Marcar tarea como no completada" : "Marcar tarea como completada"}
           style={{
             ...styles.button,
             background: isCompleted 
@@ -868,6 +875,7 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
             color: "white",
             flex: 1,
           }}
+          className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           {isCompleted ? (
             <span style={{ 
@@ -886,6 +894,7 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
               // Mark as undone - call the onComplete function with false to toggle state
               onComplete(false);
             }}
+            aria-label="Deshacer tarea completada"
             style={{
               ...styles.button,
               background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
@@ -894,6 +903,7 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
               width: "auto",
               padding: "12px 16px",
             }}
+            className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             Undo
           </button>
@@ -1633,32 +1643,34 @@ export default function Home() {
             No tasks match your current filters
           </div>
         ) : (
-          filteredDisplayedTasks.map((task, i) => (
-            <div key={task.id} style={{ animation: "fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards", opacity: 0, animationDelay: `${i * 0.1}s` }}>
-              <TaskCard
-                task={task}
-                isCompleted={completedTasks[task.id] || false}
-                onComplete={(undo = true) => {
-                  if (undo) {
-                    // Mark as done
-                    console.log(`${task.title} completed!`);
-                    setCompletedTasks(prev => ({ ...prev, [task.id]: true }));
-                  } else {
-                    // Mark as undone
-                    console.log(`${task.title} undone!`);
-                    setCompletedTasks(prev => {
-                      const newCompletedTasks = { ...prev };
-                      delete newCompletedTasks[task.id];
-                      return newCompletedTasks;
-                    });
-                  }
-                }}
-                index={i}
-                isDark={isDark}
-                colors={colors}
-              />
-            </div>
-          ))
+          <div role="list">
+            {filteredDisplayedTasks.map((task, i) => (
+              <div key={task.id} role="listitem" style={{ animation: "fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards", opacity: 0, animationDelay: `${i * 0.1}s` }}>
+                <TaskCard
+                  task={task}
+                  isCompleted={completedTasks[task.id] || false}
+                  onComplete={(undo = true) => {
+                    if (undo) {
+                      // Mark as done
+                      console.log(`${task.title} completed!`);
+                      setCompletedTasks(prev => ({ ...prev, [task.id]: true }));
+                    } else {
+                      // Mark as undone
+                      console.log(`${task.title} undone!`);
+                      setCompletedTasks(prev => {
+                        const newCompletedTasks = { ...prev };
+                        delete newCompletedTasks[task.id];
+                        return newCompletedTasks;
+                      });
+                    }
+                  }}
+                  index={i}
+                  isDark={isDark}
+                  colors={colors}
+                />
+              </div>
+            ))}
+          </div>
         )}
         {/* Loading spinner */}
         {isLoadingMore && (
