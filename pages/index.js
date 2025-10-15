@@ -1,5 +1,19 @@
-import { useState, useEffect, useContext, useRef } from "react";
+import { useState, useEffect, useContext, useRef, useMemo } from "react";
 import { ThemeContext } from "./_app";
+
+// === Persistencia: utilidades ===
+function safeParse(json, fallback) {
+  try { return JSON.parse(json); } catch { return fallback; }
+}
+function loadFromStorage(key, defaultValue) {
+  if (typeof window === 'undefined') return defaultValue;
+  const raw = window.localStorage.getItem(key);
+  return raw == null ? defaultValue : safeParse(raw, defaultValue);
+}
+function saveToStorage(key, value) {
+  if (typeof window === 'undefined') return;
+  try { window.localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
 
 // Priority scoring system
 const PRIORITY_WEIGHTS = {
@@ -85,6 +99,23 @@ function getCategoryColor(category) {
     Testing: '#95e1d3'
   };
   return colors[category] || '#a0a0a0';
+}
+
+// Apply filters to tasks
+function applyFilters(tasks, {status, category, priority}, completedMap) {
+  return tasks.filter(task => {
+    // Status filter
+    if (status === 'Active' && completedMap[task.id]) return false;
+    if (status === 'Completed' && !completedMap[task.id]) return false;
+    
+    // Category filter
+    if (category !== 'All' && task.category !== category) return false;
+    
+    // Priority filter
+    if (priority !== 'All' && task.priority !== priority) return false;
+    
+    return true;
+  });
 }
 
 const styles = {
@@ -701,13 +732,34 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
   const [isHovered, setIsHovered] = useState(false);
   const [buttonScale, setButtonScale] = useState(1);
   const [isAnimating, setIsAnimating] = useState(false);
+  const buttonRef = useRef(null);
 
   const handleClick = () => {
     if (!isCompleted) {
       setIsAnimating(true);
       onComplete();
       // Reset animation state after duration
-      setTimeout(() => setIsAnimating(false), 400);
+      setTimeout(() => {
+        setIsAnimating(false);
+        // Restore focus to the button after state change
+        buttonRef.current?.focus();
+      }, 400);
+    }
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault(); // Prevent double toggle behavior
+      if (!isCompleted) {
+        setIsAnimating(true);
+        onComplete();
+        // Reset animation state after duration
+        setTimeout(() => {
+          setIsAnimating(false);
+          // Restore focus to the button after state change
+          buttonRef.current?.focus();
+        }, 400);
+      }
     }
   };
 
@@ -773,7 +825,7 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
       {task.description && (
         <p style={{ 
           fontSize: '0.9rem', 
-          color: isDark ? 'rgba(229, 231, 235, 0.7)' : 'rgba(17, 17, 17, 0.7)',
+          color: isDark ? 'rgba(229, 231, 235, 0.8)' : 'rgba(17, 17, 17, 0.8)',
           marginBottom: '0.75rem',
           marginTop: '0.5rem',
         }}>
@@ -786,7 +838,7 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
         display: 'flex', 
         gap: '1rem', 
         fontSize: '0.85rem', 
-        color: isDark ? 'rgba(229, 231, 235, 0.6)' : 'rgba(17, 17, 17, 0.6)',
+        color: isDark ? 'rgba(229, 231, 235, 0.8)' : 'rgba(17, 17, 17, 0.8)',
         marginBottom: '1rem' 
       }}>
         {task.estimatedHours && <span>⏱️ {task.estimatedHours}h</span>}
@@ -809,7 +861,7 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
               fontSize: '0.75rem',
               padding: '0.25rem 0.5rem',
               borderRadius: '8px',
-              background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              background: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)',
               color: currentColors.text,
             }}>
               #{tag}
@@ -818,33 +870,71 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
         </div>
       )}
       
-      {/* Button */}
-      <button
-        onClick={handleClick}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        style={{
-          ...styles.button,
-          background: isCompleted 
-            ? "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)" 
-            : (isDark ? "#4B5EAA" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"),
-          boxShadow: isCompleted 
-            ? "0 4px 15px rgba(56, 239, 125, 0.4)" 
-            : (isDark ? "0 4px 15px rgba(75, 94, 170, 0.4)" : "0 4px 15px rgba(102, 126, 234, 0.4)"),
-          transform: `scale(${buttonScale})`,
-          color: "white",
-        }}
-      >
-        {isCompleted ? (
-          <span style={{ 
-            animation: isAnimating ? "checkmarkScale 0.4s ease" : "none",
-            display: "inline-block"
-          }}>
-            Completed ✅
-          </span>
-        ) : "Mark as done"}
-      </button>
+      {/* Buttons */}
+      <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+        <button
+          ref={buttonRef}
+          onClick={handleClick}
+          onKeyDown={handleKeyDown}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          aria-label={isCompleted ? "Marcar como no completada" : "Marcar como completada"}
+          aria-pressed={isCompleted}
+          tabIndex={0}
+          style={{
+            ...styles.button,
+            background: isCompleted 
+              ? "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)" 
+              : (isDark ? "#4B5EAA" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"),
+            boxShadow: isCompleted 
+              ? "0 4px 15px rgba(56, 239, 125, 0.4)" 
+              : (isDark ? "0 4px 155, 0.4)" : "0 4px 15px rgba(102, 126, 234, 0.4)"),
+            transform: `scale(${buttonScale})`,
+            color: "white",
+            flex: 1,
+          }}
+        >
+          {isCompleted ? (
+            <span style={{ 
+              animation: isAnimating ? "checkmarkScale 0.4s ease" : "none",
+              display: "inline-block"
+            }}>
+              Completed ✅
+            </span>
+          ) : "Mark as done"}
+        </button>
+        
+        {isCompleted && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              // Mark as undone - call the onComplete function with false to toggle state
+              onComplete(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                onComplete(false);
+              }
+            }}
+            aria-label="Marcar como no completada"
+            aria-pressed={true}
+            tabIndex={0}
+            style={{
+              ...styles.button,
+              background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+              boxShadow: "0 4px 15px rgba(0, 0, 0, 0.1)",
+              color: currentColors.text,
+              width: "auto",
+              padding: "12px 16px",
+            }}
+          >
+            Undo
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -860,15 +950,25 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [priorityFilter, setPriorityFilter] = useState('All');
   const sentinelRef = useRef(null);
+  const categoryFilterRef = useRef(null);
+  const statusFilterRef = useRef(null);
+  const priorityFilterRef = useRef(null);
   const TASKS_PER_PAGE = 10;
 
   useEffect(() => {
-    // Load completed tasks from localStorage
-    const savedCompletedTasks = localStorage.getItem('completedTasks');
-    if (savedCompletedTasks) {
-      setCompletedTasks(JSON.parse(savedCompletedTasks));
-    }
+    // Load completed tasks from localStorage using safe utilities
+    const savedCompletedTasks = loadFromStorage('tmp_completed_v1', {});
+    setCompletedTasks(savedCompletedTasks);
+    
+    // Load filters from localStorage using safe utilities
+    const savedFilters = loadFromStorage('tmp_filters_v1', {});
+    setStatusFilter(savedFilters.statusFilter || 'All');
+    setCategoryFilter(savedFilters.categoryFilter || 'All');
+    setPriorityFilter(savedFilters.priorityFilter || 'All');
     
     // Sort tasks by priority
     const sortedTasks = sortTasksByPriority(EXTENDED_TASKS);
@@ -876,19 +976,39 @@ export default function Home() {
     // Store all tasks
     setAllTasksList(sortedTasks);
     
-    // Display only first page
-    setDisplayedTasks(sortedTasks.slice(0, TASKS_PER_PAGE));
-    
-    // Set hasMore if there are more pages
-    setHasMore(sortedTasks.length > TASKS_PER_PAGE);
-    
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    // Save completed tasks to localStorage
-    localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+    // Save completed tasks to localStorage using safe utility
+    saveToStorage('tmp_completed_v1', completedTasks);
   }, [completedTasks]);
+
+  useEffect(() => {
+    // Save filters to localStorage using safe utility
+    const filters = {
+      statusFilter,
+      categoryFilter,
+      priorityFilter
+    };
+    saveToStorage('tmp_filters_v1', filters);
+  }, [statusFilter, categoryFilter, priorityFilter]);
+
+  // Apply filters when filters or completed tasks change
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const filteredTasks = applyFilters(allTasksList, {
+      status: statusFilter,
+      category: categoryFilter,
+      priority: priorityFilter
+    }, completedTasks);
+    
+    // Reset pagination and display first page of filtered tasks
+    setCurrentPage(1);
+    setDisplayedTasks(filteredTasks.slice(0, TASKS_PER_PAGE));
+    setHasMore(filteredTasks.length > TASKS_PER_PAGE);
+  }, [statusFilter, categoryFilter, priorityFilter, completedTasks, mounted, allTasksList]);
 
   useEffect(() => {
     // Trigger confetti when all tasks are completed
@@ -942,11 +1062,18 @@ export default function Home() {
   const loadMoreTasks = () => {
     setIsLoadingMore(true);
     
+    // Apply current filters to get filtered task list
+    const filteredTasks = applyFilters(allTasksList, {
+      status: statusFilter,
+      category: categoryFilter,
+      priority: priorityFilter
+    }, completedTasks);
+    
     // Simulate async load (remove timeout in production if using real API)
     setTimeout(() => {
       const startIndex = currentPage * TASKS_PER_PAGE;
       const endIndex = startIndex + TASKS_PER_PAGE;
-      const nextPageTasks = allTasksList.slice(startIndex, endIndex);
+      const nextPageTasks = filteredTasks.slice(startIndex, endIndex);
       
       if (nextPageTasks.length === 0) {
         setHasMore(false);
@@ -988,15 +1115,86 @@ export default function Home() {
 
   const currentColors = isDark ? colors.dark : colors.light;
 
+  // Helper para filtrar tareas en el render
+  const getFilteredTasks = (tasks) => {
+    if (!tasks) return [];
+    let filtered = tasks;
+    if (categoryFilter && categoryFilter !== 'All') {
+      filtered = filtered.filter(t => t.category === categoryFilter);
+    }
+    if (priorityFilter && priorityFilter !== 'All') {
+      filtered = filtered.filter(t => t.priority === priorityFilter);
+    }
+    return filtered;
+  };
+
+  const filteredDisplayedTasks = useMemo(
+    () => getFilteredTasks(displayedTasks),
+    [displayedTasks, categoryFilter, priorityFilter]
+  );
+
   if (!mounted) {
-    return (
-      <div style={{
-        background: currentColors.background,
-        minHeight: "100vh",
-        padding: "2rem",
-        position: "relative",
-        overflow: "hidden",
-      }}>
+  return (
+    <div style={{
+      background: currentColors.background,
+      minHeight: "100vh",
+      padding: "2rem",
+      position: "relative",
+      overflow: "hidden",
+    }}>
+      {/* Skip link for keyboard navigation */}
+      <a
+        href="#main-content"
+        style={{
+          position: 'absolute',
+          top: '0.75rem',
+          left: '0.75rem',
+          zIndex: '50',
+          background: isDark ? '#ffffff' : '#000000',
+          color: isDark ? '#000000' : '#ffffff',
+          padding: '0.5rem 0.75rem',
+          borderRadius: '0.5rem',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          textDecoration: 'none',
+          fontWeight: '600',
+          clip: 'rect(0 0 0 0)',
+          clipPath: 'inset(50%)',
+          height: '1px',
+          overflow: 'hidden',
+          position: 'absolute',
+          whiteSpace: 'nowrap',
+          width: '1px',
+        }}
+        onFocus={(e) => {
+          e.target.style.clip = 'auto';
+          e.target.style.clipPath = 'none';
+          e.target.style.height = 'auto';
+          e.target.style.overflow = 'visible';
+          e.target.style.position = 'fixed';
+          e.target.style.whiteSpace = 'normal';
+          e.target.style.width = 'auto';
+        }}
+        onBlur={(e) => {
+          e.target.style.clip = 'rect(0 0 0 0)';
+          e.target.style.clipPath = 'inset(50%)';
+          e.target.style.height = '1px';
+          e.target.style.overflow = 'hidden';
+          e.target.style.position = 'absolute';
+          e.target.style.whiteSpace = 'nowrap';
+          e.target.style.width = '1px';
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.clip = 'auto';
+          e.target.style.clipPath = 'none';
+          e.target.style.height = 'auto';
+          e.target.style.overflow = 'visible';
+          e.target.style.position = 'absolute';
+          e.target.style.whiteSpace = 'normal';
+          e.target.style.width = 'auto';
+        }}
+      >
+        Skip to main content
+      </a>
         <div style={{
           position: "absolute",
           top: 0,
@@ -1218,6 +1416,19 @@ export default function Home() {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
+        /* Focus-visible styling for accessibility - WCAG 2.1 AA compliant */
+        button:focus-visible {
+          outline: 2px solid #4B5EAA;
+          outline-offset: 2px;
+        }
+        select:focus-visible {
+          outline: 2px solid #4B5EAA;
+          outline-offset: 2px;
+        }
+        a:focus-visible {
+          outline: 2px solid #4B5EAA;
+          outline-offset: 2px;
+        }
       `}</style>
       <button
         onClick={toggle}
@@ -1248,26 +1459,18 @@ export default function Home() {
       >
         {isDark ? '☀️' : '🌙'}
       </button>
-      <main
-        style={{
-          maxWidth: 720,
-          margin: "0 auto",
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-      <div style={{
-        background: "rgba(255, 255, 255, 0.15)",
-        backdropFilter: "blur(20px)",
-        border: "1px solid rgba(255, 255, 255, 0.3)",
-        padding: "2rem 3rem",
-        borderRadius: 20,
-        boxShadow: isDark ? "0 8px 32px 0 rgba(0, 0, 0, 0.37)" : "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
-        marginBottom: "2rem",
-        display: "inline-block",
-        animation: "float 6s ease-in-out infinite",
-      }}>
+      <header role="banner">
+        <div style={{
+          background: "rgba(255, 255, 255, 0.15)",
+          backdropFilter: "blur(20px)",
+          border: "1px solid rgba(255, 255, 255, 0.3)",
+          padding: "2rem 3rem",
+          borderRadius: 20,
+          boxShadow: isDark ? "0 8px 32px 0 rgba(0, 0, 0, 0.37)" : "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
+          marginBottom: "2rem",
+          display: "inline-block",
+          animation: "float 6s ease-in-out infinite",
+        }}>
           <h1 style={{ 
             color: currentColors.text,
             textAlign: "center", 
@@ -1283,6 +1486,14 @@ export default function Home() {
             Welcome to Task Manager Pro
           </h1>
         </div>
+      </header>
+      <main id="main-content" role="main" style={{
+        maxWidth: 720,
+        margin: "0 auto",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        position: "relative",
+        zIndex: 1,
+      }}>
         <div style={{
           background: currentColors.progressBg,
           backdropFilter: "blur(15px)",
@@ -1317,13 +1528,29 @@ export default function Home() {
         </div>
         <button 
           onClick={() => {
-            localStorage.removeItem('completedTasks');
+            // Reset completed tasks and save empty object
             setCompletedTasks({});
-            const sortedTasks = sortTasksByPriority(EXTENDED_TASKS);
-            setAllTasksList(sortedTasks);
-            setDisplayedTasks(sortedTasks.slice(0, TASKS_PER_PAGE));
+            saveToStorage('tmp_completed_v1', {});
+            // Reset filters to default and save default filter values
+            setStatusFilter('All');
+            setCategoryFilter('All');
+            setPriorityFilter('All');
+            saveToStorage('tmp_filters_v1', {
+              statusFilter: 'All',
+              categoryFilter: 'All',
+              priorityFilter: 'All'
+            });
+            // Apply filters and reset pagination
+            const filteredTasks = applyFilters(allTasksList, {
+              status: 'All',
+              category: 'All',
+              priority: 'All'
+            }, {});
             setCurrentPage(1);
-            setHasMore(sortedTasks.length > TASKS_PER_PAGE);
+            setDisplayedTasks(filteredTasks.slice(0, TASKS_PER_PAGE));
+            setHasMore(filteredTasks.length > TASKS_PER_PAGE);
+            // Move focus to category filter select after reset
+            categoryFilterRef.current?.focus();
           }}
           style={{
             background: currentColors.resetButtonBg,
@@ -1354,21 +1581,220 @@ export default function Home() {
         >
           Reset All Tasks
         </button>
-        {displayedTasks.map((task, i) => (
-          <div key={task.id} style={{ animation: "fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards", opacity: 0, animationDelay: `${i * 0.1}s` }}>
-            <TaskCard
-              task={task}
-              isCompleted={completedTasks[task.id] || false}
-              onComplete={() => {
-                console.log(`${task.title} completed!`);
-                setCompletedTasks(prev => ({ ...prev, [task.id]: true }));
+        <nav role="navigation" aria-label="Main navigation">
+          {/* Filter bar */}
+          <div style={{
+            background: currentColors.progressBg,
+            backdropFilter: "blur(15px)",
+            border: "1px solid rgba(255,255,255,0.3)",
+            padding: "1rem",
+            borderRadius: "12px",
+            display: "flex",
+            gap: "1rem",
+            marginBottom: "2rem",
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <label style={{ 
+              color: currentColors.text, 
+              fontSize: "0.9rem", 
+              fontWeight: "600",
+              opacity: 1 
+            }}>
+              Status
+            </label>
+            <select
+              ref={statusFilterRef}
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                // Reset pagination and apply new filters
+                const filteredTasks = applyFilters(allTasksList, {
+                  status: e.target.value,
+                  category: categoryFilter,
+                  priority: priorityFilter
+                }, completedTasks);
+                setCurrentPage(1);
+                setDisplayedTasks(filteredTasks.slice(0, TASKS_PER_PAGE));
+                setHasMore(filteredTasks.length > TASKS_PER_PAGE);
               }}
-              index={i}
-              isDark={isDark}
-              colors={colors}
-            />
+              aria-label="Filter tasks by status"
+              style={{
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: "8px",
+                padding: "0.5rem 1rem",
+                color: currentColors.text,
+                fontSize: "0.9rem",
+                fontWeight: "500",
+                backdropFilter: "blur(10px)",
+              }}
+            >
+              <option value="All">All</option>
+              <option value="Active">Active</option>
+              <option value="Completed">Completed</option>
+            </select>
           </div>
-        ))}
+          
+          {/* === Filtros === */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", flex: 1 }}>
+            <label style={{ 
+              color: currentColors.text, 
+              fontSize: "0.9rem", 
+              fontWeight: "600",
+              opacity: 1 
+            }}>
+              Category
+            </label>
+            <select
+              ref={categoryFilterRef}
+              aria-label="Filtrar por categoría"
+              style={{
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: "1rem",
+                padding: "0.5rem 1rem",
+                color: currentColors.text,
+                fontSize: "0.9rem",
+                fontWeight: "500",
+                backdropFilter: "blur(10px)",
+              }}
+              value={categoryFilter === 'All' ? '' : categoryFilter}
+              onChange={(e) =>
+                setCategoryFilter(e.target.value || 'All')
+              }
+            >
+              <option value="">Todas las categorías</option>
+              <option value="Backend">Backend</option>
+              <option value="Frontend">Frontend</option>
+              <option value="DevOps">DevOps</option>
+              <option value="Database">Database</option>
+              <option value="Security">Security</option>
+            </select>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", flex: 1 }}>
+            <label style={{ 
+              color: currentColors.text, 
+              fontSize: "0.9rem", 
+              fontWeight: "600",
+              opacity: 1 
+            }}>
+              Priority
+            </label>
+            <select
+              ref={priorityFilterRef}
+              aria-label="Filtrar por prioridad"
+              style={{
+                background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: "1rem",
+                padding: "0.5rem 1rem",
+                color: currentColors.text,
+                fontSize: "0.9rem",
+                fontWeight: "500",
+                backdropFilter: "blur(10px)",
+              }}
+              value={priorityFilter === 'All' ? '' : priorityFilter}
+              onChange={(e) =>
+                setPriorityFilter(e.target.value || 'All')
+              }
+            >
+              <option value="">Todas las prioridades</option>
+              <option value="CRITICAL">CRITICAL</option>
+              <option value="HIGH">HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            aria-label="Restablecer filtros"
+            style={{
+              background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              border: "1px solid rgba(255,255,255,0.3)",
+              borderRadius: "1rem",
+              padding: "0.5rem 1rem",
+              color: currentColors.text,
+              fontSize: "0.9rem",
+              fontWeight: "600",
+              backdropFilter: "blur(10px)",
+              cursor: "pointer",
+            }}
+            onClick={() => {
+              setCategoryFilter('All');
+              setPriorityFilter('All');
+              // Move focus to category filter select after reset
+              categoryFilterRef.current?.focus();
+            }}
+          >
+            Restablecer filtros
+          </button>
+          </div>
+        </div>
+        </nav>
+        {filteredDisplayedTasks.length === 0 ? (
+          <div style={{
+            textAlign: 'center',
+            padding: '2rem',
+            color: 'rgba(255,255,255,0.6)',
+            fontSize: '1.1rem',
+            fontStyle: 'italic'
+          }}>
+            No tasks match your current filters
+          </div>
+        ) : (
+          <ul role="list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {filteredDisplayedTasks.map((task, i) => (
+              <li key={task.id} role="listitem" style={{ animation: "fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards", opacity: 0, animationDelay: `${i * 0.1}s` }}>
+                <TaskCard
+                  task={task}
+                  isCompleted={completedTasks[task.id] || false}
+                  onComplete={(undo = true) => {
+                    if (undo) {
+                      // Mark as done
+                      console.log(`${task.title} completed!`);
+                      setCompletedTasks(prev => ({ ...prev, [task.id]: true }));
+                      // Announce completion via aria-live region
+                      const region = document.getElementById('a11y-status');
+                      if (region) {
+                        region.textContent = `Task "${task.title}" marked as completed`;
+                      }
+                    } else {
+                      // Mark as undone
+                      console.log(`${task.title} undone!`);
+                      setCompletedTasks(prev => {
+                        const newCompletedTasks = { ...prev };
+                        delete newCompletedTasks[task.id];
+                        return newCompletedTasks;
+                      });
+                      // Announce un-completion via aria-live region
+                      const region = document.getElementById('a11y-status');
+                      if (region) {
+                        region.textContent = `Task "${task.title}" marked as not completed`;
+                      }
+                    }
+                  }}
+                  index={i}
+                  isDark={isDark}
+                  colors={colors}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+        {/* aria-live region for accessibility announcements */}
+        <div aria-live="polite" aria-atomic="true" id="a11y-status" style={{
+          position: 'absolute',
+          left: '-10000px',
+          top: 'auto',
+          width: '1px',
+          height: '1px',
+          overflow: 'hidden',
+        }}></div>
         {/* Loading spinner */}
         {isLoadingMore && (
           <div style={{
