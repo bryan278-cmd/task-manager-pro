@@ -7,8 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "prisma:seed": "prisma db seed"
+    "lint": "next lint"
   },
   "repository": {
     "type": "git",
@@ -21,13 +20,8 @@
     "url": "https://github.com/bryan278-cmd/task-manager-pro/issues"
   },
   "homepage": "https://github.com/bryan278-cmd/task-manager-pro#readme",
-  "prisma": {
-    "seed": "node prisma/seed.js"
-  },
   "dependencies": {
-    "@prisma/client": "^6.17.1",
     "next": "^15.5.4",
-    "prisma": "^6.17.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   }
