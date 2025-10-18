@@ -9,14 +9,24 @@ export default async function handler(req, res) {
       const limit = parseInt(req.query.limit) || 10;
       const skip = (page - 1) * limit;
 
-      const [tasks, totalTasks] = await Promise.all([
+      // Fetch ALL tasks first
+      const [allTasks, totalTasks] = await Promise.all([
         prisma.task.findMany({
-          skip,
-          take: limit,
           orderBy: { createdAt: 'desc' }
         }),
         prisma.task.count()
       ]);
+
+      // Sort by priority hierarchy
+      const priorityOrder = { CRITICAL: 1, HIGH: 2, MEDIUM: 3, LOW: 4 };
+      const sortedTasks = allTasks.sort((a, b) => {
+        const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+        if (priorityDiff !== 0) return priorityDiff;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+
+      // Apply pagination AFTER sorting
+      const tasks = sortedTasks.slice(skip, skip + limit);
 
       const totalPages = Math.ceil(totalTasks / limit);
 
