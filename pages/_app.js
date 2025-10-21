@@ -1,11 +1,12 @@
 import { createContext, useEffect, useMemo, useState } from "react";
+import { SessionProvider } from "next-auth/react";
 
 export const ThemeContext = createContext({
   theme: "light",
   toggle: () => {},
 });
 
-function MyApp({ Component, pageProps }) {
+export default function App({ Component, pageProps: { session, ...pageProps } }) {
   const [theme, setTheme] = useState("light");
 
   // Carga inicial: localStorage → `prefers-color-scheme`
@@ -34,10 +35,10 @@ function MyApp({ Component, pageProps }) {
   );
 
   return (
-    <ThemeContext.Provider value={value}>
-      <Component {...pageProps} />
-    </ThemeContext.Provider>
+    <SessionProvider session={session}>
+      <ThemeContext.Provider value={value}>
+        <Component {...pageProps} />
+      </ThemeContext.Provider>
+    </SessionProvider>
   );
 }
-
-export default MyApp;
