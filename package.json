@@ -4,10 +4,14 @@
   "private": true,
   "description": "",
   "scripts": {
+    "setup": "bash ./setup.sh",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:studio": "npx prisma studio",
+    "db:migrate": "npx prisma migrate dev",
+    "db:generate": "npx prisma generate"
   },
   "repository": {
     "type": "git",
@@ -24,7 +28,10 @@
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
+    "@prisma/client": "^6.17.1",
+    "bcryptjs": "^3.0.2",
     "next": "^15.5.4",
+    "next-auth": "^4.24.11",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   }
