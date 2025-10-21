@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "smoke": "node scripts/smoke.mjs",
     "db:studio": "npx prisma studio",
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate"

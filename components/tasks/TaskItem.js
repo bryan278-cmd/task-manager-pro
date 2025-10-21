@@ -10,8 +10,8 @@ const TaskCard = memo(function TaskCard({ task, isCompleted, onComplete }) {
   };
 
   return (
-    <div className="rounded-xl ring-1 ring-[var(--border)] bg-[var(--surface)] hover:bg-[var(--elev)]/60 transition p-4 mb-3">
-      <div className="flex items-start gap-3">
+    <div className="rounded-xl ring-1 ring-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-2)] transition p-6 mb-4">
+      <div className="flex items-start gap-4">
         {/* Checkbox */}
         <div className="mt-1">
           <div className={`checkbox ${isCompleted ? "checkbox--checked" : ""}`}>
@@ -26,7 +26,7 @@ const TaskCard = memo(function TaskCard({ task, isCompleted, onComplete }) {
         
         <div className="flex-1">
           {/* Title */}
-          <div className={`font-semibold text-[var(--text)] mb-2 ${isCompleted ? 'opacity-70 line-through' : ''}`}>
+          <div className={`font-semibold text-[var(--text)] mb-3 ${isCompleted ? 'line-through' : ''}`}>
             {task.title}
           </div>
           
@@ -52,7 +52,7 @@ const TaskCard = memo(function TaskCard({ task, isCompleted, onComplete }) {
             <button
               onClick={() => onComplete()}
               aria-label="Marcar como completada"
-              className="btn btn-ghost text-sm px-3 py-1"
+              className="btn btn-ghost text-sm px-3 py-1 lux-focus"
             >
               Mark as done
             </button>
@@ -65,7 +65,7 @@ const TaskCard = memo(function TaskCard({ task, isCompleted, onComplete }) {
                 onComplete(false);
               }}
               aria-label="Marcar como no completada"
-              className="btn btn-ghost text-sm px-3 py-1"
+              className="btn btn-ghost text-sm px-3 py-1 lux-focus"
             >
               Undo
             </button>

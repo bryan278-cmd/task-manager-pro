@@ -29,20 +29,25 @@ export default function LoginPage() {
         <div className="lux-card">
           <h1 className="section-title mb-4">Login</h1>
           <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label className="label">Email</label>
+            <div className="mb-4">
+              <label htmlFor="email" className="label">Email</label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="input"
                 placeholder="Enter your email"
+                autoComplete="email"
+                aria-invalid={!!error}
+                aria-describedby={error ? "login-error" : undefined}
               />
             </div>
-            <div className="mb-3">
-              <label className="label">Password</label>
+            <div className="mb-4">
+              <label htmlFor="password" className="label">Password</label>
               <input
+                id="password"
                 type="password"
                 value={password}
                 minLength={8}
@@ -50,19 +55,27 @@ export default function LoginPage() {
                 required
                 className="input"
                 placeholder="Enter your password"
+                autoComplete="current-password"
+                aria-invalid={!!error}
+                aria-describedby={error ? "login-error" : undefined}
               />
             </div>
-            {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
-            <button type="submit" className="btn btn-gold w-full mt-4">
+            {error && (
+              <p id="login-error" className="text-red-500 text-sm mb-4" role="alert">
+                {error}
+              </p>
+            )}
+            <button type="submit" className="btn btn-gold w-full mt-4 lux-focus">
               Sign In
             </button>
           </form>
           <div className="hairline mt-4 mb-3"></div>
-          <a href="/register" className="btn btn-ghost w-full">
+          <a href="/register" className="btn btn-ghost w-full lux-focus">
             Don't have an account? Register
           </a>
         </div>
       </div>
+      <div aria-live="polite" aria-atomic="true" className="sr-only" id="login-status"></div>
     </main>
   );
 }

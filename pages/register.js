@@ -46,30 +46,37 @@ export default function RegisterPage() {
         <div className="lux-card">
           <h1 className="section-title mb-4">Register</h1>
           <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label className="label">Name (optional)</label>
+            <div className="mb-4">
+              <label htmlFor="name" className="label">Name (optional)</label>
               <input
+                id="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="input"
                 placeholder="Enter your name"
+                autoComplete="name"
               />
             </div>
-            <div className="mb-3">
-              <label className="label">Email</label>
+            <div className="mb-4">
+              <label htmlFor="email" className="label">Email</label>
               <input
+                id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="input"
                 placeholder="Enter your email"
+                autoComplete="email"
+                aria-invalid={!!error}
+                aria-describedby={error ? "register-error" : undefined}
               />
             </div>
-            <div className="mb-3">
-              <label className="label">Password</label>
+            <div className="mb-4">
+              <label htmlFor="password" className="label">Password</label>
               <input
+                id="password"
                 type="password"
                 value={password}
                 minLength={8}
@@ -77,23 +84,31 @@ export default function RegisterPage() {
                 required
                 className="input"
                 placeholder="Enter your password"
+                autoComplete="new-password"
+                aria-invalid={!!error}
+                aria-describedby={error ? "register-error" : undefined}
               />
             </div>
-            {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+            {error && (
+              <p id="register-error" className="text-red-500 text-sm mb-4" role="alert">
+                {error}
+              </p>
+            )}
             <button 
               type="submit" 
               disabled={loading}
-              className="btn btn-gold w-full mt-4"
+              className="btn btn-gold w-full mt-4 lux-focus"
             >
               {loading ? "Creating..." : "Create Account"}
             </button>
           </form>
           <div className="hairline mt-4 mb-3"></div>
-          <a href="/login" className="btn btn-ghost w-full">
+          <a href="/login" className="btn btn-ghost w-full lux-focus">
             Already have an account? Login
           </a>
         </div>
       </div>
+      <div aria-live="polite" aria-atomic="true" className="sr-only" id="register-status"></div>
     </main>
   );
 }
