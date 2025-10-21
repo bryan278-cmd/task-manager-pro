@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { Pagination } from "../components/Pagination";
+import { TaskCard } from "../components/tasks/TaskItem";
 
 // === Persistencia: utilidades ===
 function safeParse(json, fallback) {
@@ -120,8 +121,30 @@ function applyFilters(tasks, {status, category, priority}, completedMap) {
 }
 
 
-const EXTENDED_TASKS = [
-  // BACKEND (12 tasks)
+// Pre-sorted tasks array to avoid processing on every render
+const PRE_SORTED_TASKS = [
+  // SECURITY (highest priority tasks first)
+  { 
+    id: 48, 
+    title: 'Implement OAuth 2.0 with Google/GitHub', 
+    category: 'Security',
+    priority: 'CRITICAL',
+    complexity: 'high',
+    deadline: '2025-10-23',
+    tags: ['Auth', 'OAuth', 'SSO'],
+    estimatedHours: 10,
+    description: 'Social login integration'
+  },
+  { 
+    id: 51, 
+    title: 'Implement input sanitization for XSS prevention', 
+    category: 'Security',
+    priority: 'CRITICAL',
+    complexity: 'medium',
+    tags: ['XSS', 'Validation', 'Sanitization'],
+    estimatedHours: 4,
+    description: 'Sanitize all user inputs'
+  },
   { 
     id: 1, 
     title: 'Implement REST API authentication with JWT', 
@@ -135,6 +158,41 @@ const EXTENDED_TASKS = [
     description: 'Setup JWT-based authentication with refresh tokens'
   },
   { 
+    id: 28, 
+    title: 'Setup CI/CD pipeline with GitHub Actions', 
+    category: 'DevOps',
+    priority: 'CRITICAL',
+    complexity: 'high',
+    deadline: '2025-10-19',
+    tags: ['CI/CD', 'Automation', 'GitHub'],
+    estimatedHours: 8,
+    description: 'Automated testing and deployment'
+  },
+  { 
+    id: 41, 
+    title: 'Implement database backup automation', 
+    category: 'Database',
+    priority: 'CRITICAL',
+    complexity: 'medium',
+    deadline: '2025-10-21',
+    tags: ['Backup', 'DR', 'Automation'],
+    estimatedHours: 5,
+    description: 'Hourly incremental backups'
+  },
+  { 
+    id: 18, 
+    title: 'Implement infinite scroll with virtualization', 
+    category: 'Frontend',
+    priority: 'CRITICAL',
+    complexity: 'high',
+    deadline: '2025-10-17',
+    tags: ['Performance', 'UX', 'Scroll'],
+    estimatedHours: 7,
+    description: 'Virtual scrolling for 1000+ items'
+  },
+  
+  // HIGH priority tasks
+  { 
     id: 2, 
     title: 'Optimize database queries with indexing', 
     category: 'Backend',
@@ -145,18 +203,6 @@ const EXTENDED_TASKS = [
     tags: ['Database', 'Performance', 'SQL'],
     estimatedHours: 6,
     description: 'Add indexes to frequently queried columns'
-  },
-  { 
-    id: 3, 
-    title: 'Create GraphQL schema for user management', 
-    category: 'Backend',
-    priority: 'MEDIUM',
-    complexity: 'medium',
-    deadline: '2025-10-25',
-    dependencies: [1],
-    tags: ['GraphQL', 'API', 'Schema'],
-    estimatedHours: 5,
-    description: 'Design GraphQL types and resolvers'
   },
   { 
     id: 4, 
@@ -180,36 +226,6 @@ const EXTENDED_TASKS = [
     description: 'Add rate limiting to prevent abuse'
   },
   { 
-    id: 6, 
-    title: 'Setup WebSocket server for real-time updates', 
-    category: 'Backend',
-    priority: 'MEDIUM',
-    complexity: 'high',
-    tags: ['WebSocket', 'Real-time', 'Socket.io'],
-    estimatedHours: 7,
-    description: 'Enable real-time task updates'
-  },
-  { 
-    id: 7, 
-    title: 'Create API documentation with Swagger', 
-    category: 'Backend',
-    priority: 'LOW',
-    complexity: 'low',
-    tags: ['Documentation', 'API', 'Swagger'],
-    estimatedHours: 4,
-    description: 'Auto-generate API docs'
-  },
-  { 
-    id: 8, 
-    title: 'Implement file upload with S3', 
-    category: 'Backend',
-    priority: 'MEDIUM',
-    complexity: 'medium',
-    tags: ['Storage', 'AWS', 'Upload'],
-    estimatedHours: 5,
-    description: 'Add file attachment support'
-  },
-  { 
     id: 9, 
     title: 'Setup error tracking with Sentry', 
     category: 'Backend',
@@ -230,28 +246,6 @@ const EXTENDED_TASKS = [
     estimatedHours: 5,
     description: 'Setup Knex.js migrations'
   },
-  { 
-    id: 11, 
-    title: 'Implement background job queue', 
-    category: 'Backend',
-    priority: 'MEDIUM',
-    complexity: 'high',
-    tags: ['Queue', 'Bull', 'Jobs'],
-    estimatedHours: 6,
-    description: 'Setup Bull for async tasks'
-  },
-  { 
-    id: 12, 
-    title: 'Add API versioning strategy', 
-    category: 'Backend',
-    priority: 'LOW',
-    complexity: 'low',
-    tags: ['API', 'Versioning', 'REST'],
-    estimatedHours: 3,
-    description: 'Implement /v1/, /v2/ routing'
-  },
-  
-  // FRONTEND (15 tasks)
   { 
     id: 13, 
     title: 'Build responsive navigation with mobile menu', 
@@ -275,16 +269,6 @@ const EXTENDED_TASKS = [
     description: 'Toggle between light/dark themes'
   },
   { 
-    id: 15, 
-    title: 'Create reusable form validation hooks', 
-    category: 'Frontend',
-    priority: 'MEDIUM',
-    complexity: 'medium',
-    tags: ['React', 'Hooks', 'Forms'],
-    estimatedHours: 4,
-    description: 'Custom useForm hook with validation'
-  },
-  { 
     id: 16, 
     title: 'Optimize bundle size with code splitting', 
     category: 'Frontend',
@@ -293,77 +277,6 @@ const EXTENDED_TASKS = [
     tags: ['Performance', 'Webpack', 'Optimization'],
     estimatedHours: 6,
     description: 'Dynamic imports and lazy loading'
-  },
-  { 
-    id: 17, 
-    title: 'Add skeleton loading states', 
-    category: 'Frontend',
-    priority: 'LOW',
-    complexity: 'low',
-    tags: ['UI', 'UX', 'Loading'],
-    estimatedHours: 2,
-    description: 'Shimmer placeholders while loading'
-  },
-  { 
-    id: 18, 
-    title: 'Implement infinite scroll with virtualization', 
-    category: 'Frontend',
-    priority: 'CRITICAL',
-    complexity: 'high',
-    deadline: '2025-10-17',
-    tags: ['Performance', 'UX', 'Scroll'],
-    estimatedHours: 7,
-    description: 'Virtual scrolling for 1000+ items'
-  },
-  { 
-    id: 19, 
-    title: 'Create toast notification system', 
-    category: 'Frontend',
-    priority: 'MEDIUM',
-    complexity: 'low',
-    tags: ['UI', 'Notifications', 'UX'],
-    estimatedHours: 3,
-    description: 'Success/error/warning toasts'
-  },
-  { 
-    id: 20, 
-    title: 'Add drag-and-drop task reordering', 
-    category: 'Frontend',
-    priority: 'LOW',
-    complexity: 'high',
-    tags: ['UI', 'Interaction', 'DnD'],
-    estimatedHours: 8,
-    description: 'Drag tasks to change priority'
-  },
-  { 
-    id: 21, 
-    title: 'Implement search with debouncing', 
-    category: 'Frontend',
-    priority: 'MEDIUM',
-    complexity: 'low',
-    tags: ['Search', 'UX', 'Performance'],
-    estimatedHours: 3,
-    description: 'Filter tasks by keyword'
-  },
-  { 
-    id: 22, 
-    title: 'Create animated progress bars', 
-    category: 'Frontend',
-    priority: 'LOW',
-    complexity: 'low',
-    tags: ['Animation', 'UI', 'Progress'],
-    estimatedHours: 2,
-    description: 'Visual task completion indicators'
-  },
-  { 
-    id: 23, 
-    title: 'Add keyboard shortcuts', 
-    category: 'Frontend',
-    priority: 'MEDIUM',
-    complexity: 'medium',
-    tags: ['Accessibility', 'UX', 'Keyboard'],
-    estimatedHours: 4,
-    description: 'Hotkeys for common actions'
   },
   { 
     id: 24, 
@@ -376,26 +289,6 @@ const EXTENDED_TASKS = [
     description: 'Graceful error handling'
   },
   { 
-    id: 25, 
-    title: 'Create multi-select with bulk actions', 
-    category: 'Frontend',
-    priority: 'MEDIUM',
-    complexity: 'medium',
-    tags: ['UI', 'UX', 'Bulk'],
-    estimatedHours: 5,
-    description: 'Select multiple tasks for batch operations'
-  },
-  { 
-    id: 26, 
-    title: 'Add data export to CSV/JSON', 
-    category: 'Frontend',
-    priority: 'LOW',
-    complexity: 'low',
-    tags: ['Export', 'Data', 'Download'],
-    estimatedHours: 3,
-    description: 'Download tasks as file'
-  },
-  { 
     id: 27, 
     title: 'Implement accessibility audit fixes', 
     category: 'Frontend',
@@ -405,19 +298,6 @@ const EXTENDED_TASKS = [
     tags: ['Accessibility', 'WCAG', 'A11y'],
     estimatedHours: 6,
     description: 'WCAG 2.1 AA compliance'
-  },
-  
-  // DEVOPS (12 tasks)
-  { 
-    id: 28, 
-    title: 'Setup CI/CD pipeline with GitHub Actions', 
-    category: 'DevOps',
-    priority: 'CRITICAL',
-    complexity: 'high',
-    deadline: '2025-10-19',
-    tags: ['CI/CD', 'Automation', 'GitHub'],
-    estimatedHours: 8,
-    description: 'Automated testing and deployment'
   },
   { 
     id: 29, 
@@ -430,17 +310,6 @@ const EXTENDED_TASKS = [
     description: 'Reduce image size by 70%'
   },
   { 
-    id: 30, 
-    title: 'Implement blue-green deployment', 
-    category: 'DevOps',
-    priority: 'MEDIUM',
-    complexity: 'high',
-    dependencies: [28],
-    tags: ['Deployment', 'Kubernetes', 'Zero-downtime'],
-    estimatedHours: 10,
-    description: 'Zero-downtime deployments'
-  },
-  { 
     id: 31, 
     title: 'Setup monitoring with Prometheus + Grafana', 
     category: 'DevOps',
@@ -449,36 +318,6 @@ const EXTENDED_TASKS = [
     tags: ['Monitoring', 'Observability', 'Metrics'],
     estimatedHours: 5,
     description: 'Real-time metrics dashboards'
-  },
-  { 
-    id: 32, 
-    title: 'Configure auto-scaling policies', 
-    category: 'DevOps',
-    priority: 'MEDIUM',
-    complexity: 'medium',
-    tags: ['Scalability', 'Cloud', 'Auto-scale'],
-    estimatedHours: 4,
-    description: 'Scale based on CPU/memory'
-  },
-  { 
-    id: 33, 
-    title: 'Implement log aggregation with ELK', 
-    category: 'DevOps',
-    priority: 'MEDIUM',
-    complexity: 'high',
-    tags: ['Logging', 'ELK', 'Debugging'],
-    estimatedHours: 7,
-    description: 'Centralized log management'
-  },
-  { 
-    id: 34, 
-    title: 'Setup infrastructure as code with Terraform', 
-    category: 'DevOps',
-    priority: 'LOW',
-    complexity: 'high',
-    tags: ['IaC', 'Terraform', 'Automation'],
-    estimatedHours: 9,
-    description: 'Version-controlled infrastructure'
   },
   { 
     id: 35, 
@@ -502,26 +341,6 @@ const EXTENDED_TASKS = [
     description: 'Secure credential storage'
   },
   { 
-    id: 37, 
-    title: 'Setup performance testing with k6', 
-    category: 'DevOps',
-    priority: 'MEDIUM',
-    complexity: 'low',
-    tags: ['Testing', 'Performance', 'Load'],
-    estimatedHours: 3,
-    description: 'Automated load testing'
-  },
-  { 
-    id: 38, 
-    title: 'Configure CDN with CloudFlare', 
-    category: 'DevOps',
-    priority: 'MEDIUM',
-    complexity: 'low',
-    tags: ['CDN', 'Performance', 'CloudFlare'],
-    estimatedHours: 3,
-    description: 'Global content delivery'
-  },
-  { 
     id: 39, 
     title: 'Implement health checks and readiness probes', 
     category: 'DevOps',
@@ -531,8 +350,6 @@ const EXTENDED_TASKS = [
     estimatedHours: 2,
     description: 'Service health monitoring'
   },
-  
-  // DATABASE (8 tasks)
   { 
     id: 40, 
     title: 'Design database normalization strategy', 
@@ -544,17 +361,6 @@ const EXTENDED_TASKS = [
     description: '3NF normalization for efficiency'
   },
   { 
-    id: 41, 
-    title: 'Implement database backup automation', 
-    category: 'Database',
-    priority: 'CRITICAL',
-    complexity: 'medium',
-    deadline: '2025-10-21',
-    tags: ['Backup', 'DR', 'Automation'],
-    estimatedHours: 5,
-    description: 'Hourly incremental backups'
-  },
-  { 
     id: 42, 
     title: 'Setup database replication (master-slave)', 
     category: 'Database',
@@ -563,16 +369,6 @@ const EXTENDED_TASKS = [
     tags: ['HA', 'Replication', 'Redundancy'],
     estimatedHours: 8,
     description: 'High availability setup'
-  },
-  { 
-    id: 43, 
-    title: 'Create migration scripts for schema changes', 
-    category: 'Database',
-    priority: 'MEDIUM',
-    complexity: 'low',
-    tags: ['Migration', 'Version Control', 'Schema'],
-    estimatedHours: 3,
-    description: 'Safe schema evolution'
   },
   { 
     id: 44, 
@@ -593,39 +389,6 @@ const EXTENDED_TASKS = [
     tags: ['Performance', 'Connections', 'Pooling'],
     estimatedHours: 2,
     description: 'Reuse connections efficiently'
-  },
-  { 
-    id: 46, 
-    title: 'Setup database monitoring and alerts', 
-    category: 'Database',
-    priority: 'MEDIUM',
-    complexity: 'medium',
-    tags: ['Monitoring', 'Alerts', 'Observability'],
-    estimatedHours: 4,
-    description: 'Track performance metrics'
-  },
-  { 
-    id: 47, 
-    title: 'Create database seeding scripts', 
-    category: 'Database',
-    priority: 'LOW',
-    complexity: 'low',
-    tags: ['Testing', 'Seed', 'Development'],
-    estimatedHours: 2,
-    description: 'Populate test data'
-  },
-  
-  // SECURITY (7 tasks)
-  { 
-    id: 48, 
-    title: 'Implement OAuth 2.0 with Google/GitHub', 
-    category: 'Security',
-    priority: 'CRITICAL',
-    complexity: 'high',
-    deadline: '2025-10-23',
-    tags: ['Auth', 'OAuth', 'SSO'],
-    estimatedHours: 10,
-    description: 'Social login integration'
   },
   { 
     id: 49, 
@@ -649,16 +412,6 @@ const EXTENDED_TASKS = [
     description: 'Find and fix vulnerabilities'
   },
   { 
-    id: 51, 
-    title: 'Implement input sanitization for XSS prevention', 
-    category: 'Security',
-    priority: 'CRITICAL',
-    complexity: 'medium',
-    tags: ['XSS', 'Validation', 'Sanitization'],
-    estimatedHours: 4,
-    description: 'Sanitize all user inputs'
-  },
-  { 
     id: 52, 
     title: 'Setup SSL/TLS with auto-renewal', 
     category: 'Security',
@@ -668,6 +421,171 @@ const EXTENDED_TASKS = [
     tags: ['SSL', 'Encryption', 'Certificates'],
     estimatedHours: 2,
     description: "Let's Encrypt automation"
+  },
+  
+  // MEDIUM priority tasks
+  { 
+    id: 3, 
+    title: 'Create GraphQL schema for user management', 
+    category: 'Backend',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    deadline: '2025-10-25',
+    dependencies: [1],
+    tags: ['GraphQL', 'API', 'Schema'],
+    estimatedHours: 5,
+    description: 'Design GraphQL types and resolvers'
+  },
+  { 
+    id: 6, 
+    title: 'Setup WebSocket server for real-time updates', 
+    category: 'Backend',
+    priority: 'MEDIUM',
+    complexity: 'high',
+    tags: ['WebSocket', 'Real-time', 'Socket.io'],
+    estimatedHours: 7,
+    description: 'Enable real-time task updates'
+  },
+  { 
+    id: 8, 
+    title: 'Implement file upload with S3', 
+    category: 'Backend',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    tags: ['Storage', 'AWS', 'Upload'],
+    estimatedHours: 5,
+    description: 'Add file attachment support'
+  },
+  { 
+    id: 11, 
+    title: 'Implement background job queue', 
+    category: 'Backend',
+    priority: 'MEDIUM',
+    complexity: 'high',
+    tags: ['Queue', 'Bull', 'Jobs'],
+    estimatedHours: 6,
+    description: 'Setup Bull for async tasks'
+  },
+  { 
+    id: 15, 
+    title: 'Create reusable form validation hooks', 
+    category: 'Frontend',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    tags: ['React', 'Hooks', 'Forms'],
+    estimatedHours: 4,
+    description: 'Custom useForm hook with validation'
+  },
+  { 
+    id: 19, 
+    title: 'Create toast notification system', 
+    category: 'Frontend',
+    priority: 'MEDIUM',
+    complexity: 'low',
+    tags: ['UI', 'Notifications', 'UX'],
+    estimatedHours: 3,
+    description: 'Success/error/warning toasts'
+  },
+  { 
+    id: 21, 
+    title: 'Implement search with debouncing', 
+    category: 'Frontend',
+    priority: 'MEDIUM',
+    complexity: 'low',
+    tags: ['Search', 'UX', 'Performance'],
+    estimatedHours: 3,
+    description: 'Filter tasks by keyword'
+  },
+  { 
+    id: 23, 
+    title: 'Add keyboard shortcuts', 
+    category: 'Frontend',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    tags: ['Accessibility', 'UX', 'Keyboard'],
+    estimatedHours: 4,
+    description: 'Hotkeys for common actions'
+  },
+  { 
+    id: 25, 
+    title: 'Create multi-select with bulk actions', 
+    category: 'Frontend',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    tags: ['UI', 'UX', 'Bulk'],
+    estimatedHours: 5,
+    description: 'Select multiple tasks for batch operations'
+  },
+  { 
+    id: 30, 
+    title: 'Implement blue-green deployment', 
+    category: 'DevOps',
+    priority: 'MEDIUM',
+    complexity: 'high',
+    dependencies: [28],
+    tags: ['Deployment', 'Kubernetes', 'Zero-downtime'],
+    estimatedHours: 10,
+    description: 'Zero-downtime deployments'
+  },
+  { 
+    id: 32, 
+    title: 'Configure auto-scaling policies', 
+    category: 'DevOps',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    tags: ['Scalability', 'Cloud', 'Auto-scale'],
+    estimatedHours: 4,
+    description: 'Scale based on CPU/memory'
+  },
+  { 
+    id: 33, 
+    title: 'Implement log aggregation with ELK', 
+    category: 'DevOps',
+    priority: 'MEDIUM',
+    complexity: 'high',
+    tags: ['Logging', 'ELK', 'Debugging'],
+    estimatedHours: 7,
+    description: 'Centralized log management'
+  },
+  { 
+    id: 37, 
+    title: 'Setup performance testing with k6', 
+    category: 'DevOps',
+    priority: 'MEDIUM',
+    complexity: 'low',
+    tags: ['Testing', 'Performance', 'Load'],
+    estimatedHours: 3,
+    description: 'Automated load testing'
+  },
+  { 
+    id: 38, 
+    title: 'Configure CDN with CloudFlare', 
+    category: 'DevOps',
+    priority: 'MEDIUM',
+    complexity: 'low',
+    tags: ['CDN', 'Performance', 'CloudFlare'],
+    estimatedHours: 3,
+    description: 'Global content delivery'
+  },
+  { 
+    id: 43, 
+    title: 'Create migration scripts for schema changes', 
+    category: 'Database',
+    priority: 'MEDIUM',
+    complexity: 'low',
+    tags: ['Migration', 'Version Control', 'Schema'],
+    estimatedHours: 3,
+    description: 'Safe schema evolution'
+  },
+  { 
+    id: 46, 
+    title: 'Setup database monitoring and alerts', 
+    category: 'Database',
+    priority: 'MEDIUM',
+    complexity: 'medium',
+    tags: ['Monitoring', 'Alerts', 'Observability'],
+    estimatedHours: 4,
+    description: 'Track performance metrics'
   },
   { 
     id: 53, 
@@ -689,138 +607,87 @@ const EXTENDED_TASKS = [
     estimatedHours: 8,
     description: 'TOTP-based 2FA'
   },
+  { 
+    id: 12, 
+    title: 'Add API versioning strategy', 
+    category: 'Backend',
+    priority: 'LOW',
+    complexity: 'low',
+    tags: ['API', 'Versioning', 'REST'],
+    estimatedHours: 3,
+    description: 'Implement /v1/, /v2/ routing'
+  },
+  { 
+    id: 7, 
+    title: 'Create API documentation with Swagger', 
+    category: 'Backend',
+    priority: 'LOW',
+    complexity: 'low',
+    tags: ['Documentation', 'API', 'Swagger'],
+    estimatedHours: 4,
+    description: 'Auto-generate API docs'
+  },
+  { 
+    id: 17, 
+    title: 'Add skeleton loading states', 
+    category: 'Frontend',
+    priority: 'LOW',
+    complexity: 'low',
+    tags: ['UI', 'UX', 'Loading'],
+    estimatedHours: 2,
+    description: 'Shimmer placeholders while loading'
+  },
+  { 
+    id: 20, 
+    title: 'Add drag-and-drop task reordering', 
+    category: 'Frontend',
+    priority: 'LOW',
+    complexity: 'high',
+    tags: ['UI', 'Interaction', 'DnD'],
+    estimatedHours: 8,
+    description: 'Drag tasks to change priority'
+  },
+  { 
+    id: 22, 
+    title: 'Create animated progress bars', 
+    category: 'Frontend',
+    priority: 'LOW',
+    complexity: 'low',
+    tags: ['Animation', 'UI', 'Progress'],
+    estimatedHours: 2,
+    description: 'Visual task completion indicators'
+  },
+  { 
+    id: 26, 
+    title: 'Add data export to CSV/JSON', 
+    category: 'Frontend',
+    priority: 'LOW',
+    complexity: 'low',
+    tags: ['Export', 'Data', 'Download'],
+    estimatedHours: 3,
+    description: 'Download tasks as file'
+  },
+  { 
+    id: 34, 
+    title: 'Setup infrastructure as code with Terraform', 
+    category: 'DevOps',
+    priority: 'LOW',
+    complexity: 'high',
+    tags: ['IaC', 'Terraform', 'Automation'],
+    estimatedHours: 9,
+    description: 'Version-controlled infrastructure'
+  },
+  { 
+    id: 47, 
+    title: 'Create database seeding scripts', 
+    category: 'Database',
+    priority: 'LOW',
+    complexity: 'low',
+    tags: ['Testing', 'Seed', 'Development'],
+    estimatedHours: 2,
+    description: 'Populate test data'
+  },
 ];
-
-function TaskCard({ task, isCompleted, onComplete }) {
-  return (
-    <div className="card" style={{ marginBottom: 'var(--gap-sm)' }}>
-      {/* Header with badges */}
-      <div className="row">
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-          <span className="btn" style={{
-            padding: '4px 8px',
-            fontSize: '0.7rem',
-            fontWeight: 600,
-            background: getPriorityColor(task.priority),
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)',
-          }}>
-            {task.priority}
-          </span>
-          <span className="btn" style={{
-            padding: '4px 8px',
-            fontSize: '0.7rem',
-            fontWeight: 600,
-            background: getCategoryColor(task.category),
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)',
-          }}>
-            {task.category}
-          </span>
-          {task.deadline && (
-            <span className="btn" style={{
-              padding: '4px 8px',
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-sm)',
-            }}>
-              📅 {new Date(task.deadline).toLocaleDateString()}
-            </span>
-          )}
-        </div>
-        
-        {/* Title */}
-        <h3 className="row-title" style={{ margin: '0.5rem 0' }}>
-          {task.title}
-        </h3>
-        
-        {/* Description */}
-        {task.description && (
-          <p className="row-meta" style={{ marginBottom: '0.75rem' }}>
-            {task.description}
-          </p>
-        )}
-        
-        {/* Metadata */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '1rem', 
-          fontSize: '0.85rem', 
-          color: 'var(--muted)',
-          marginBottom: '1rem' 
-        }}>
-          {task.estimatedHours && <span>⏱️ {task.estimatedHours}h</span>}
-          {task.complexity && <span>🎯 {task.complexity}</span>}
-          {task.dependencies && task.dependencies.length > 0 && (
-            <span>🔗 {task.dependencies.length} deps</span>
-          )}
-        </div>
-        
-        {/* Tags */}
-        {task.tags && task.tags.length > 0 && (
-          <div style={{ 
-            display: 'flex', 
-            gap: '0.5rem', 
-            marginBottom: '1rem', 
-            flexWrap: 'wrap' 
-          }}>
-            {task.tags.map(tag => (
-              <span key={tag} className="btn" style={{
-                fontSize: '0.75rem',
-                padding: '0.25rem 0.5rem',
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-              }}>
-                #{tag}
-              </span>
-            ))}
-          </div>
-        )}
-        
-        {/* Buttons */}
-        <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
-          <button
-            onClick={() => onComplete()}
-            aria-label={isCompleted ? "Marcar como no completada" : "Marcar como completada"}
-            aria-pressed={isCompleted}
-            disabled={isCompleted}
-            className="btn"
-            style={{
-              background: isCompleted 
-                ? "#11998e" 
-                : "var(--btn)",
-              flex: 1,
-            }}
-          >
-            {isCompleted ? "Completed ✅" : "Mark as done"}
-          </button>
-          
-          {isCompleted && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onComplete(false);
-              }}
-              aria-label="Marcar como no completada"
-              aria-pressed={true}
-              className="btn"
-              style={{
-                background: 'var(--surface-2)',
-                width: "auto",
-                padding: "6px 10px",
-              }}
-            >
-              Undo
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function Home() {
   const { data: session } = useSession();
@@ -843,6 +710,12 @@ export default function Home() {
   const inflightRef = useRef(null);
   
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // Stable pagination handler at top level
+  const onChangePage = useCallback((n) => {
+    if (n === page) return;
+    setPage(n);
+  }, [page]);
 
   // Scroll to top and focus on page change
   function scrollToTopAndFocus() {
@@ -900,11 +773,8 @@ export default function Home() {
     setCategoryFilter(savedFilters.categoryFilter || 'All');
     setPriorityFilter(savedFilters.priorityFilter || 'All');
     
-    // Sort tasks by priority
-    const sortedTasks = sortTasksByPriority(EXTENDED_TASKS);
-    
-    // Store all tasks
-    setAllTasksList(sortedTasks);
+    // Use pre-sorted tasks to avoid processing on every render
+    setAllTasksList(PRE_SORTED_TASKS);
     
     setMounted(true);
   }, []);
@@ -924,22 +794,30 @@ export default function Home() {
     saveToStorage('tmp_filters_v1', filters);
   }, [statusFilter, categoryFilter, priorityFilter]);
 
+  // Memoize filter parameters to reduce re-renders
+  const filterParams = useMemo(() => ({
+    status: statusFilter,
+    category: categoryFilter,
+    priority: priorityFilter
+  }), [statusFilter, categoryFilter, priorityFilter]);
+
   // Update displayed tasks when page or filters change
   useEffect(() => {
-    if (!mounted) return;
+    // Handle unmounted state properly within the effect
+    if (!mounted) {
+      setDisplayedTasks([]);
+      setTotal(0);
+      return;
+    }
     
-    const filteredTasks = applyFilters(allTasksList, {
-      status: statusFilter,
-      category: categoryFilter,
-      priority: priorityFilter
-    }, completedTasks);
+    const filteredTasks = applyFilters(allTasksList, filterParams, completedTasks);
     
     // Update total and display current page of filtered tasks
     setTotal(filteredTasks.length);
     const startIndex = (page - 1) * pageSize;
     const endIndex = startIndex + pageSize;
     setDisplayedTasks(filteredTasks.slice(startIndex, endIndex));
-  }, [page, pageSize, statusFilter, categoryFilter, priorityFilter, completedTasks, mounted, allTasksList]);
+  }, [page, pageSize, filterParams, completedTasks, mounted, allTasksList]);
 
   useEffect(() => {
     // Trigger confetti when all tasks are completed
@@ -959,37 +837,17 @@ export default function Home() {
     }
   }, [completedTasks, displayedTasks]);
 
-  // Helper para filtrar tareas en el render
-  const getFilteredTasks = (tasks) => {
-    if (!tasks) return [];
-    let filtered = tasks;
-    if (categoryFilter && categoryFilter !== 'All') {
-      filtered = filtered.filter(t => t.category === categoryFilter);
-    }
-    if (priorityFilter && priorityFilter !== 'All') {
-      filtered = filtered.filter(t => t.priority === priorityFilter);
-    }
-    return filtered;
-  };
-
-  const filteredDisplayedTasks = useMemo(
-    () => getFilteredTasks(displayedTasks),
-    [displayedTasks, categoryFilter, priorityFilter]
-  );
 
   if (!mounted) {
   return (
-    <div style={{
-      background: 'var(--bg)',
-      minHeight: "100vh",
-    }}>
-      <main className="main">
-        <header className="app-header">
-          <div className="app-title">Task Manager Pro</div>
-          <div className="app-user">
-            <span>{session?.user?.email || "User"}</span>
-          </div>
-        </header>
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="app-title">Task Manager Pro</div>
+        <div className="app-user">
+          <span className="chip">{session?.user?.email || "User"}</span>
+        </div>
+      </header>
+      <main className="app-main">
         <div style={{ textAlign: "center", padding: "2rem", color: 'var(--text)' }}>Loading tasks...</div>
       </main>
     </div>
@@ -997,49 +855,33 @@ export default function Home() {
   }
 
   return (
-    <div style={{
-      background: 'var(--bg)',
-      minHeight: "100vh",
-    }}>
+    <div className="app-shell">
       <header className="app-header">
         <div className="app-title">Task Manager Pro</div>
         <div className="app-user">
-          <span>{session?.user?.email || "User"}</span>
-          <button className="btn" onClick={() => signOut({ callbackUrl: "/login" })} aria-label="Logout">Logout</button>
+          <span className="chip">{session?.user?.email || "User"}</span>
+          <button className="btn btn-ghost" onClick={() => signOut({ callbackUrl: "/login" })} aria-label="Logout">Logout</button>
         </div>
       </header>
-      <main id="main-content" role="main" className="main">
+      <main id="main-content" role="main" className="app-main">
         <h1 id="pageTitle" ref={pageTitleRef} tabIndex={-1} className="sr-only">
           Tasks — Page {page} of {totalPages}
         </h1>
-        <div className="card" style={{ marginBottom: 'var(--gap-lg)' }}>
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "var(--gap-md)",
-            padding: "var(--gap-md) var(--gap-lg)",
-          }}>
+        <div className="card mb-4">
+          <div className="hstack">
             <div style={{ fontWeight: 600 }}>
               {Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length} of {displayedTasks.length} tasks completed
             </div>
-            <div style={{
-              width: "100px",
-              height: "6px",
-              background: "var(--surface-2)",
-              borderRadius: "var(--radius-sm)",
-              overflow: "hidden",
-            }}>
-              <div style={{
-                height: "100%",
-                width: `${(Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length / displayedTasks.length) * 100}%`,
-                background: "var(--btn-hover)",
-                borderRadius: "var(--radius-sm)",
-              }}></div>
+            <div className="progress">
+              <div 
+                className="progress__fill" 
+                style={{ width: `${displayedTasks.length > 0 ? (Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length / displayedTasks.length) * 100 : 0}%` }}
+              ></div>
             </div>
           </div>
         </div>
         <button 
-          className="btn"
+          className="btn btn-primary mb-4"
           onClick={() => {
             // Reset completed tasks and save empty object
             setCompletedTasks({});
@@ -1058,167 +900,98 @@ export default function Home() {
             // Move focus to category filter select after reset
             categoryFilterRef.current?.focus();
           }}
-          style={{
-            background: 'var(--btn)',
-            color: 'var(--text)',
-            fontWeight: "600",
-            padding: "12px 24px",
-            cursor: "pointer",
-            marginBottom: "1rem",
-            fontSize: "1rem",
-          }}
         >
           Reset All Tasks
         </button>
         <nav role="navigation" aria-label="Main navigation">
           {/* Filter bar */}
-          <div className="card" style={{
-            padding: "var(--gap-md)",
-            display: "flex",
-            gap: "var(--gap-md)",
-            marginBottom: "1rem",
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            <label style={{ 
-              color: 'var(--text)',
-              fontSize: "0.9rem", 
-              fontWeight: "600",
-              opacity: 1 
-            }}>
-              Status
-            </label>
-            <select
-              ref={statusFilterRef}
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                // Reset pagination to first page when filters change
-                setPage(1);
-              }}
-              aria-label="Filter tasks by status"
-              className="btn"
-              style={{
-                background: 'var(--btn)',
-                color: 'var(--text)',
-                padding: "0.5rem 1rem",
-                fontSize: "0.9rem",
-                fontWeight: "500",
-              }}
-            >
-              <option value="All">All</option>
-              <option value="Active">Active</option>
-              <option value="Completed">Completed</option>
-            </select>
-          </div>
-          
-          {/* === Filtros === */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", flex: 1 }}>
-            <label style={{ 
-              color: 'var(--text)',
-              fontSize: "0.9rem", 
-              fontWeight: "600",
-              opacity: 1 
-            }}>
-              Category
-            </label>
-            <select
-              ref={categoryFilterRef}
-              aria-label="Filtrar por categoría"
-              className="btn"
-              style={{
-                background: 'var(--btn)',
-                color: 'var(--text)',
-                padding: "0.5rem 1rem",
-                fontSize: "0.9rem",
-                fontWeight: "500",
-              }}
-              value={categoryFilter === 'All' ? '' : categoryFilter}
-              onChange={(e) =>
-                setCategoryFilter(e.target.value || 'All')
-              }
-            >
-              <option value="">Todas las categorías</option>
-              <option value="Backend">Backend</option>
-              <option value="Frontend">Frontend</option>
-              <option value="DevOps">DevOps</option>
-              <option value="Database">Database</option>
-              <option value="Security">Security</option>
-            </select>
-          </div>
+          <div className="card">
+            <div className="section">
+              <h2 className="subhead">Filters</h2>
+            </div>
+            <div className="filters-grid">
+              <div>
+                <label className="label">Status</label>
+                <select
+                  ref={statusFilterRef}
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    // Reset pagination to first page when filters change
+                    setPage(1);
+                  }}
+                  aria-label="Filter tasks by status"
+                  className="select"
+                >
+                  <option value="All">All</option>
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="label">Category</label>
+                <select
+                  ref={categoryFilterRef}
+                  aria-label="Filtrar por categoría"
+                  className="select"
+                  value={categoryFilter === 'All' ? '' : categoryFilter}
+                  onChange={(e) =>
+                    setCategoryFilter(e.target.value || 'All')
+                  }
+                >
+                  <option value="">Todas las categorías</option>
+                  <option value="Backend">Backend</option>
+                  <option value="Frontend">Frontend</option>
+                  <option value="DevOps">DevOps</option>
+                  <option value="Database">Database</option>
+                  <option value="Security">Security</option>
+                </select>
+              </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", flex: 1 }}>
-            <label style={{ 
-              color: 'var(--text)',
-              fontSize: "0.9rem", 
-              fontWeight: "600",
-              opacity: 1 
-            }}>
-              Priority
-            </label>
-            <select
-              ref={priorityFilterRef}
-              aria-label="Filtrar por prioridad"
-              className="btn"
-              style={{
-                background: 'var(--btn)',
-                color: 'var(--text)',
-                padding: "0.5rem 1rem",
-                fontSize: "0.9rem",
-                fontWeight: "500",
-              }}
-              value={priorityFilter === 'All' ? '' : priorityFilter}
-              onChange={(e) =>
-                setPriorityFilter(e.target.value || 'All')
-              }
-            >
-              <option value="">Todas las prioridades</option>
-              <option value="CRITICAL">CRITICAL</option>
-              <option value="HIGH">HIGH</option>
-              <option value="MEDIUM">MEDIUM</option>
-              <option value="LOW">LOW</option>
-            </select>
+              <div>
+                <label className="label">Priority</label>
+                <select
+                  ref={priorityFilterRef}
+                  aria-label="Filtrar por prioridad"
+                  className="select"
+                  value={priorityFilter === 'All' ? '' : priorityFilter}
+                  onChange={(e) =>
+                    setPriorityFilter(e.target.value || 'All')
+                  }
+                >
+                  <option value="">Todas las prioridades</option>
+                  <option value="CRITICAL">CRITICAL</option>
+                  <option value="HIGH">HIGH</option>
+                  <option value="MEDIUM">MEDIUM</option>
+                  <option value="LOW">LOW</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--space-3)" }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                aria-label="Restablecer filtros"
+                onClick={() => {
+                  setCategoryFilter('All');
+                  setPriorityFilter('All');
+                  // Move focus to category filter select after reset
+                  categoryFilterRef.current?.focus();
+                }}
+              >
+                Restablecer filtros
+              </button>
+            </div>
           </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", justifyContent: "flex-end" }}>
-          <button
-            type="button"
-            className="btn"
-            aria-label="Restablecer filtros"
-            style={{
-              background: 'var(--btn)',
-              color: 'var(--text)',
-              padding: "0.5rem 1rem",
-              fontSize: "0.9rem",
-              fontWeight: "600",
-              cursor: "pointer",
-            }}
-            onClick={() => {
-              setCategoryFilter('All');
-              setPriorityFilter('All');
-              // Move focus to category filter select after reset
-              categoryFilterRef.current?.focus();
-            }}
-          >
-            Restablecer filtros
-          </button>
-          </div>
-        </div>
         </nav>
-        {filteredDisplayedTasks.length === 0 ? (
-          <div style={{
-            textAlign: 'center',
-            padding: '2rem',
-            color: 'var(--muted)',
-            fontSize: '1.1rem',
-            fontStyle: 'italic'
-          }}>
+        {displayedTasks.length === 0 ? (
+          <div className="empty">
             No tasks match your current filters
           </div>
         ) : (
-          <div className="card">
-            {filteredDisplayedTasks.map((task) => (
+          <div className="card stack">
+            {displayedTasks.map((task) => (
               <TaskCard
                 key={task.id}
                 task={task}
@@ -1265,10 +1038,7 @@ export default function Home() {
           <Pagination 
             page={page} 
             totalPages={totalPages} 
-            onChange={useCallback((n) => {
-              if (n === page) return;
-              setPage(n);
-            }, [page])}
+            onChange={onChangePage}
           />
         )}
       </main>

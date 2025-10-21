@@ -3,7 +3,16 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import prisma from "../../../lib/prisma";
 import { compare } from "bcryptjs";
 
-export const authOptions = {
+// Check for required environment variables
+const hasRequiredEnvVars = process.env.NEXTAUTH_SECRET;
+
+// Log error in production if env vars are missing
+if (!hasRequiredEnvVars && process.env.NODE_ENV === 'production') {
+  console.error('[NextAuth] Missing NEXTAUTH_SECRET in production.');
+}
+
+// Define auth options
+const authOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -60,4 +69,16 @@ export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET,
 };
 
-export default NextAuth(authOptions);
+// Export NextAuth handler or error handler based on environment variables
+export default function handler(req, res) {
+  if (!hasRequiredEnvVars) {
+    // Return controlled error when env vars are missing
+    return res.status(500).json({ 
+      error: 'Server misconfiguration', 
+      message: 'Authentication not configured properly' 
+    });
+  }
+  
+  // Use NextAuth when env vars are present
+  return NextAuth(req, res, authOptions);
+}

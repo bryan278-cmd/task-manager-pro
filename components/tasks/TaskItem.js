@@ -1,107 +1,63 @@
-export default function TaskItem({ task, onToggle }) {
-  if (!task) return null;
+import React, { memo } from "react";
 
-  const {
-    id,
-    title,
-    category,
-    priority,
-    completed,
-    createdAt,
-  } = task;
-
-  const created =
-    createdAt ? new Date(createdAt).toLocaleDateString() : '';
-
+const TaskCard = memo(function TaskCard({ task, isCompleted, onComplete }) {
   return (
-    <div
-      role="listitem"
-      aria-label={`task-${id}`}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '28px 1fr auto',
-        gap: '12px',
-        alignItems: 'center',
-        padding: '12px 14px',
-        border: '1px solid rgba(0,0,0,0.1)',
-        borderRadius: 12,
-        background: 'rgba(255,255,255,0.6)',
-        backdropFilter: 'blur(6px)',
-        marginBottom: 10,
-      }}
-    >
-      <input
-        type="checkbox"
-        checked={!!completed}
-        aria-label={`toggle-complete-${id}`}
-        onChange={() => onToggle?.(task)}
-        style={{ width: 18, height: 18 }}
-      />
-
+    <div className="row">
+      {/* Badges */}
       <div>
-        <div style={{ fontWeight: 700, marginBottom: 4 }}>
-          {title}
-        </div>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12, opacity: 0.85 }}>
-          <span
-            style={{
-              padding: '2px 8px',
-              borderRadius: 12,
-              border: '1px solid rgba(0,0,0,0.1)',
-            }}
-          >
-            {category}
-          </span>
-          <span
-            style={{
-              padding: '2px 8px',
-              borderRadius: 12,
-              border: '1px solid rgba(0,0,0,0.1)',
-            }}
-          >
-            {priority}
-          </span>
-          {created && (
-            <span
-              title="Created at"
-              style={{
-                padding: '2px 8px',
-                borderRadius: 12,
-                border: '1px solid rgba(0,0,0,0.1)',
-              }}
-            >
-              {created}
-            </span>
-          )}
-          {completed ? (
-            <span
-              style={{
-                padding: '2px 8px',
-                borderRadius: 12,
-                background: 'rgba(16,185,129,0.15)',
-                border: '1px solid rgba(16,185,129,0.25)',
-              }}
-            >
-              Completed
-            </span>
-          ) : null}
+        <div className={`checkbox ${isCompleted ? "checkbox--checked" : ""}`}>
+          <input 
+            type="checkbox" 
+            checked={isCompleted}
+            onChange={() => onComplete()}
+            aria-label={isCompleted ? "Marcar como no completada" : "Marcar como completada"}
+          />
         </div>
       </div>
-
-      <button
-        onClick={() => onToggle?.(task)}
-        style={{
-          padding: '6px 10px',
-          borderRadius: 10,
-          border: '1px solid rgba(0,0,0,0.15)',
-          background: completed ? '#f3f4f6' : '#111',
-          color: completed ? '#111' : '#fff',
-          cursor: 'pointer',
-        }}
-      >
-        {completed ? 'Mark as pending' : 'Mark as done'}
-      </button>
+      
+      <div>
+        {/* Title */}
+        <div className="row-title">{task.title}</div>
+        
+        {/* Metadata */}
+        <div className="row-meta">
+          <span className={`badge badge--${task.priority.toLowerCase()}`}>{task.priority}</span>
+          <span className={`badge badge--${task.category.toLowerCase()}`}>{task.category}</span>
+          {task.deadline && (
+            <span className="badge">📅 {new Date(task.deadline).toLocaleDateString()}</span>
+          )}
+        </div>
+      </div>
+      
+      {/* Buttons */}
+      <div className="right">
+        <button
+          onClick={() => onComplete()}
+          aria-label={isCompleted ? "Marcar como no completada" : "Marcar como completada"}
+          aria-pressed={isCompleted}
+          disabled={isCompleted}
+          className="btn btn-outline"
+          style={{ marginRight: '0.5rem' }}
+        >
+          {isCompleted ? "Completed ✅" : "Mark as done"}
+        </button>
+        
+        {isCompleted && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onComplete(false);
+            }}
+            aria-label="Marcar como no completada"
+            aria-pressed={true}
+            className="btn btn-ghost"
+          >
+            Undo
+          </button>
+        )}
+      </div>
     </div>
   );
-}
+});
+
+export { TaskCard };
