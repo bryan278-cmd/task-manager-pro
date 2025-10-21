@@ -20,6 +20,9 @@
     "url": "https://github.com/bryan278-cmd/task-manager-pro/issues"
   },
   "homepage": "https://github.com/bryan278-cmd/task-manager-pro#readme",
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "dependencies": {
     "next": "^15.5.4",
     "react": "^19.2.0",
