@@ -1,5 +1,8 @@
 import { useState, useEffect, useContext, useRef, useMemo } from "react";
 import { ThemeContext } from "./_app";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "./api/auth/[...nextauth]";
+import { signOut } from "next-auth/react";
 
 // === Persistencia: utilidades ===
 function safeParse(json, fallback) {
@@ -939,7 +942,21 @@ function TaskCard({ task, isCompleted, onComplete, index, isDark, colors }) {
   );
 }
 
-export default function Home() {
+export async function getServerSideProps(context) {
+  const session = await getServerSession(context.req, context.res, authOptions);
+  if (!session) {
+    return {
+      redirect: { destination: "/login", permanent: false },
+    };
+  }
+
+  return { props: { session } };
+}
+
+export default function Home({ session }) {
+  // Windowing constants for performance hardening
+  const WINDOW_SIZE = 120; // max items to keep rendered/in memory
+  const TRIM_TO = 100;     // when exceeding WINDOW_SIZE, trim down to this
   const { theme, toggle } = useContext(ThemeContext);
   const isDark = theme === 'dark';
   
@@ -957,6 +974,8 @@ export default function Home() {
   const categoryFilterRef = useRef(null);
   const statusFilterRef = useRef(null);
   const priorityFilterRef = useRef(null);
+  const loadingRef = useRef(false);
+  const inflightRef = useRef(null);
   const TASKS_PER_PAGE = 10;
 
   useEffect(() => {
@@ -1028,16 +1047,34 @@ export default function Home() {
     }
   }, [completedTasks, displayedTasks]);
 
-  // Setup IntersectionObserver for infinite scroll
+  // Setup IntersectionObserver for infinite scroll with throttling
   useEffect(() => {
     // Don't observe if not mounted or no more tasks
     if (!mounted || !hasMore || isLoadingMore) return;
 
+    function throttle(fn, wait) {
+      let last = 0, timeout = null, lastArgs = null;
+      return function throttled(...args) {
+        const now = Date.now();
+        lastArgs = args;
+        const invoke = () => { last = now; timeout = null; fn(...lastArgs); };
+        if (!last || (now - last) >= wait) {
+          invoke();
+        } else if (!timeout) {
+          timeout = setTimeout(invoke, wait - (now - last));
+        }
+      };
+    }
+
+    const throttledLoadMore = throttle(() => {
+      loadMoreTasks();
+    }, 120);
+
     const observer = new IntersectionObserver(
       (entries) => {
-        // When sentinel enters viewport, load more
+        // When sentinel enters viewport, load more (throttled)
         if (entries[0].isIntersecting) {
-          loadMoreTasks();
+          throttledLoadMore();
         }
       },
       {
@@ -1058,8 +1095,10 @@ export default function Home() {
     };
   }, [mounted, hasMore, isLoadingMore, currentPage]);
 
-  // Load more tasks function
+  // Load more tasks function with AbortController
   const loadMoreTasks = () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     setIsLoadingMore(true);
     
     // Apply current filters to get filtered task list
@@ -1069,8 +1108,19 @@ export default function Home() {
       priority: priorityFilter
     }, completedTasks);
     
+    // Create AbortController for cancellation
+    const controller = new AbortController();
+    inflightRef.current = controller;
+    
     // Simulate async load (remove timeout in production if using real API)
     setTimeout(() => {
+      // Check if request was aborted
+      if (controller.signal.aborted) {
+        loadingRef.current = false;
+        setIsLoadingMore(false);
+        return;
+      }
+      
       const startIndex = currentPage * TASKS_PER_PAGE;
       const endIndex = startIndex + TASKS_PER_PAGE;
       const nextPageTasks = filteredTasks.slice(startIndex, endIndex);
@@ -1078,13 +1128,29 @@ export default function Home() {
       if (nextPageTasks.length === 0) {
         setHasMore(false);
       } else {
-        setDisplayedTasks(prev => [...prev, ...nextPageTasks]);
+        setDisplayedTasks(prev => {
+          let next = prev.concat(nextPageTasks);
+          if (next.length > WINDOW_SIZE) {
+            // Keep only the most recent TRIM_TO items to bound DOM + memory
+            next = next.slice(next.length - TRIM_TO);
+          }
+          return next;
+        });
         setCurrentPage(prev => prev + 1);
       }
       
+      loadingRef.current = false;
       setIsLoadingMore(false);
+      inflightRef.current = null;
     }, 300); // <100ms in production
   };
+
+  // Cleanup effect to abort in-flight requests
+  useEffect(() => {
+    return () => {
+      try { inflightRef.current?.abort(); } catch {}
+    };
+  }, []);
 
   const colors = {
     light: {
@@ -1459,6 +1525,40 @@ export default function Home() {
       >
         {isDark ? '☀️' : '🌙'}
       </button>
+      <header
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "8px 12px",
+          borderBottom: "1px solid #e5e7eb",
+          position: "sticky",
+          top: 0,
+          background: "#fff",
+          zIndex: 10,
+        }}
+      >
+        <div>
+          <strong>Task Manager Pro</strong>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 14, color: "#374151" }}>
+            {session?.user?.email || "User"}
+          </span>
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            style={{
+              padding: "6px 10px",
+              border: "1px solid #d1d5db",
+              borderRadius: 6,
+              background: "#f9fafb",
+              cursor: "pointer",
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </header>
       <header role="banner">
         <div style={{
           background: "rgba(255, 255, 255, 0.15)",
