@@ -905,10 +905,11 @@ export default function Home() {
         </button>
         <nav role="navigation" aria-label="Main navigation">
           {/* Filter bar */}
-          <div className="card">
+          <div className="lux-card mb-4">
             <div className="section">
-              <h2 className="subhead">Filters</h2>
+              <h2 className="section-title">Filters</h2>
             </div>
+            <div className="hairline mb-4"></div>
             <div className="filters-grid">
               <div>
                 <label className="label">Status</label>
@@ -921,7 +922,7 @@ export default function Home() {
                     setPage(1);
                   }}
                   aria-label="Filter tasks by status"
-                  className="select"
+                  className="input"
                 >
                   <option value="All">All</option>
                   <option value="Active">Active</option>
@@ -934,7 +935,7 @@ export default function Home() {
                 <select
                   ref={categoryFilterRef}
                   aria-label="Filtrar por categoría"
-                  className="select"
+                  className="input"
                   value={categoryFilter === 'All' ? '' : categoryFilter}
                   onChange={(e) =>
                     setCategoryFilter(e.target.value || 'All')
@@ -954,7 +955,7 @@ export default function Home() {
                 <select
                   ref={priorityFilterRef}
                   aria-label="Filtrar por prioridad"
-                  className="select"
+                  className="input"
                   value={priorityFilter === 'All' ? '' : priorityFilter}
                   onChange={(e) =>
                     setPriorityFilter(e.target.value || 'All')
@@ -968,7 +969,7 @@ export default function Home() {
                 </select>
               </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--space-3)" }}>
+            <div className="flex justify-end mt-4">
               <button
                 type="button"
                 className="btn btn-ghost"

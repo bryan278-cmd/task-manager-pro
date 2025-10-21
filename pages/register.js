@@ -41,47 +41,59 @@ export default function RegisterPage() {
   }
 
   return (
-    <main style={{ maxWidth: 420, margin: "40px auto", padding: 16 }}>
-      <h1>Register</h1>
-      <form onSubmit={handleSubmit}>
-        <label style={{ display: "block", marginBottom: 8 }}>
-          Name (optional)
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ display: "block", width: "100%", marginTop: 4 }}
-          />
-        </label>
-        <label style={{ display: "block", marginBottom: 8 }}>
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ display: "block", width: "100%", marginTop: 4 }}
-          />
-        </label>
-        <label style={{ display: "block", marginBottom: 8 }}>
-          Password
-          <input
-            type="password"
-            value={password}
-            minLength={8}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ display: "block", width: "100%", marginTop: 4 }}
-          />
-        </label>
-        {error ? <p style={{ color: "red" }}>{error}</p> : null}
-        <button type="submit" disabled={loading} style={{ marginTop: 8 }}>
-          {loading ? "Creating..." : "Create Account"}
-        </button>
-      </form>
-      <p style={{ marginTop: 12 }}>
-        Already have an account? <a href="/login">Login</a>
-      </p>
+    <main className="page-wrap">
+      <div className="page-container">
+        <div className="lux-card">
+          <h1 className="section-title mb-4">Register</h1>
+          <form onSubmit={handleSubmit}>
+            <div className="mb-3">
+              <label className="label">Name (optional)</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="input"
+                placeholder="Enter your name"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="label">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="input"
+                placeholder="Enter your email"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="label">Password</label>
+              <input
+                type="password"
+                value={password}
+                minLength={8}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="input"
+                placeholder="Enter your password"
+              />
+            </div>
+            {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="btn btn-gold w-full mt-4"
+            >
+              {loading ? "Creating..." : "Create Account"}
+            </button>
+          </form>
+          <div className="hairline mt-4 mb-3"></div>
+          <a href="/login" className="btn btn-ghost w-full">
+            Already have an account? Login
+          </a>
+        </div>
+      </div>
     </main>
   );
 }
