@@ -72,6 +72,28 @@ curl -i -X POST "http://localhost:3000/api/auth/register" \
   - `npm run db:migrate` - Create new database migrations
   - `npm run db:generate` - Regenerate Prisma Client
 
+## Demo Quick Start
+
+### Requirements
+- **Node.js** (v22.19.0 recommended)
+- **Docker Desktop** (for PostgreSQL database)
+
+### Setup
+1. `cp .env.example .env` and set `NEXTAUTH_URL` to match your frontend port
+2. `docker compose up -d` (Starts PostgreSQL database)
+3. `npm install` (Install dependencies)
+4. `npx prisma db push` (Initialize database schema)
+5. `npm run dev` (Start development server)
+
+### Test the Application
+- Visit `/register` → create user, then `/login`, then `/` (dashboard), then logout
+- Or run `npm run smoke` for quick endpoint testing
+
+### Notes
+- No external services required; everything runs locally
+- Database will persist data between sessions
+- All authentication is handled locally via NextAuth.js
+
 ## License / Notes
 
 - **Local-first**: No cloud services required for authentication or operation

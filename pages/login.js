@@ -24,36 +24,58 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ maxWidth: 420, margin: "40px auto", padding: 16 }}>
-      <h1>Login</h1>
-      <form onSubmit={handleSubmit}>
-        <label style={{ display: "block", marginBottom: 8 }}>
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ display: "block", width: "100%", marginTop: 4 }}
-          />
-        </label>
-        <label style={{ display: "block", marginBottom: 8 }}>
-          Password
-          <input
-            type="password"
-            value={password}
-            minLength={8}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ display: "block", width: "100%", marginTop: 4 }}
-          />
-        </label>
-        {error ? <p style={{ color: "red" }}>{error}</p> : null}
-        <button type="submit" style={{ marginTop: 8 }}>Sign In</button>
-      </form>
-      <p style={{ marginTop: 12 }}>
-        Don't have an account? <a href="/register">Register</a>
-      </p>
+    <main className="page-wrap">
+      <div className="page-container">
+        <div className="lux-card">
+          <h1 className="section-title mb-4">Login</h1>
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label htmlFor="email" className="label">Email</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="input"
+                placeholder="Enter your email"
+                autoComplete="email"
+                aria-invalid={!!error}
+                aria-describedby={error ? "login-error" : undefined}
+              />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="password" className="label">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                minLength={8}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="input"
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                aria-invalid={!!error}
+                aria-describedby={error ? "login-error" : undefined}
+              />
+            </div>
+            {error && (
+              <p id="login-error" className="text-red-500 text-sm mb-4" role="alert">
+                {error}
+              </p>
+            )}
+            <button type="submit" className="btn btn-gold w-full mt-4 lux-focus">
+              Sign In
+            </button>
+          </form>
+          <div className="hairline mt-4 mb-3"></div>
+          <a href="/register" className="btn btn-ghost w-full lux-focus">
+            Don't have an account? Register
+          </a>
+        </div>
+      </div>
+      <div aria-live="polite" aria-atomic="true" className="sr-only" id="login-status"></div>
     </main>
   );
 }

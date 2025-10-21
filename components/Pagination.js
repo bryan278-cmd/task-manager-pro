@@ -8,7 +8,7 @@ function PageButton({ label, page, totalPages, target, onChange }) {
 
   return (
     <button
-      className="pg-btn"
+      className="btn btn-ghost"
       aria-label={label ? label : `Go to page ${target}`}
       aria-current={isActive ? "page" : undefined}
       onClick={() => (!label ? onChange(target) : onChange(isPrev ? page - 1 : page + 1))}
