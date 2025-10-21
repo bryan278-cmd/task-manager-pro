@@ -6,10 +6,14 @@
   "scripts": {
     "setup": "bash ./setup.sh",
     "dev": "next dev",
+    "dev:3000": "npm run env:3000 && npm run free:3000 && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "smoke": "node scripts/smoke.mjs",
+    "env:3000": "node scripts/set-nextauth-url.mjs 3000",
+    "free:3000": "node scripts/free-port.mjs 3000",
+    "prisma:fix:win": "taskkill /IM node.exe /F || exit 0 && rmdir /S /Q node_modules\\.prisma\\client 2>nul && rmdir /S /Q node_modules\\@prisma\\engines 2>nul && npm install && npx prisma generate",
     "db:studio": "npx prisma studio",
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate"

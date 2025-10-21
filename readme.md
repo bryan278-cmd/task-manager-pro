@@ -21,6 +21,8 @@ npm run setup
 npm run dev
 ```
 
+Use `npm run dev:3000` to align NEXTAUTH_URL and free the port automatically. Then `export APP_PORT=3000 && npm run smoke`.
+
 ## First User Registration
 
 Visit http://localhost:3000/register to create your first user account. This will automatically seed 50 tasks for your user.
