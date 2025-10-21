@@ -1,5 +1,6 @@
 import { createContext, useEffect, useMemo, useState } from "react";
 import { SessionProvider } from "next-auth/react";
+import "../styles/lux.css";
 
 export const ThemeContext = createContext({
   theme: "light",
