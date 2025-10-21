@@ -1,69 +1,50 @@
-import prisma from "../../../lib/prisma";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]";
+import { PrismaClient } from '@prisma/client';
 
-// Allowed values for validation
-const ALLOWED_PRIORITIES = new Set(["low", "medium", "high"]);
-const ALLOWED_CATEGORIES = new Set(["bug", "feature", "chore"]);
+const prisma = new PrismaClient();
 
 export default async function handler(req, res) {
-  const session = await getServerSession(req, res, authOptions);
-  if (!session || !session.user?.id) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-  const userId = session.user.id;
+  if (req.method === 'GET') {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
 
-  if (req.method === "GET") {
-    // Pagination (defaults)
-    const page = Math.max(parseInt(req.query.page ?? "1", 10) || 1, 1);
-    const pageSize = Math.max(parseInt(req.query.pageSize ?? "10", 10) || 10, 1);
-    const take = Math.min(pageSize, 50);
-    const skip = (page - 1) * take;
+      // Fetch ALL tasks first
+      const [allTasks, totalTasks] = await Promise.all([
+        prisma.task.findMany({
+          orderBy: { createdAt: 'desc' }
+        }),
+        prisma.task.count()
+      ]);
 
-    // NOTE: Keep ordering simple and stable. (Priority ordering can be added later if needed.)
-    const [items, total] = await Promise.all([
-      prisma.task.findMany({
-        where: { userId },
-        orderBy: [{ createdAt: "desc" }],
-        skip,
-        take,
-      }),
-      prisma.task.count({ where: { userId } }),
-    ]);
+      // Sort by priority hierarchy
+      const priorityOrder = { CRITICAL: 1, HIGH: 2, MEDIUM: 3, LOW: 4 };
+      const sortedTasks = allTasks.sort((a, b) => {
+        const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+        if (priorityDiff !== 0) return priorityDiff;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
 
-    return res.status(200).json({
-      page,
-      pageSize: take,
-      total,
-      items,
-    });
-  }
+      // Apply pagination AFTER sorting
+      const tasks = sortedTasks.slice(skip, skip + limit);
 
-  if (req.method === "POST") {
-    const { title, priority, category } = req.body || {};
+      const totalPages = Math.ceil(totalTasks / limit);
 
-    if (!title || typeof title !== "string") {
-      return res.status(400).json({ error: "Title is required" });
+      return res.status(200).json({
+        data: tasks,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalTasks,
+          hasNextPage: page < totalPages,
+          hasPreviousPage: page > 1
+        }
+      });
+    } catch (error) {
+      console.error('API Error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
     }
-    if (!ALLOWED_PRIORITIES.has(priority)) {
-      return res.status(400).json({ error: "Invalid priority" });
-    }
-    if (!ALLOWED_CATEGORIES.has(category)) {
-      return res.status(400).json({ error: "Invalid category" });
-    }
-
-    const created = await prisma.task.create({
-      data: {
-        title,
-        priority,
-        category,
-        userId,
-      },
-    });
-
-    return res.status(201).json(created);
   }
 
-  res.setHeader("Allow", ["GET", "POST"]);
-  return res.status(405).json({ error: "Method Not Allowed" });
+  res.status(405).json({ error: 'Method not allowed' });
 }
