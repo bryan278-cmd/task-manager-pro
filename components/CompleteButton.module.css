@@ -1,0 +1,36 @@
+/* File: /components/CompleteButton.css */
+
+/* Base styles for both button states */
+.button-incomplete,
+.button-completed {
+  padding: 8px 16px;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out; /* Smooth transition for the change */
+}
+
+/* Initial State: "Mark as Done" */
+.button-incomplete {
+  border-color: #ef4444; /* Red */
+  color: #ef4444;
+  background-color: white;
+}
+
+.button-incomplete:hover {
+  background-color: #fef2f2; /* A very light red on hover */
+}
+
+/* Final State: "Done" */
+.button-completed {
+  border-color: #22c55e; /* Green */
+  color: white;
+  background-color: #22c55e;
+}
+
+.button-completed:hover {
+  border-color: #16a34a; /* A slightly darker green on hover */
+  background-color: #16a34a;
+}

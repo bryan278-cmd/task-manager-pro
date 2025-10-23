@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import prisma from "../../../lib/prisma";
+import prisma from "../../../lib/prisma.js";
 import { compare } from "bcryptjs";
 
 // Define auth options
@@ -39,6 +39,7 @@ export const authOptions = {
             id: user.id,
             email: user.email,
             name: user.name || null,
+            experienceLevel: user.experienceLevel || null,
           };
         } catch (error) {
           console.error("Authorization error:", error);
@@ -59,12 +60,18 @@ export const authOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+        token.experienceLevel = user.experienceLevel;
       }
       return token;
     },
     async session({ session, token }) {
       if (session?.user && token?.id) {
         session.user.id = token.id;
+        session.user.email = token.email;
+        session.user.name = token.name;
+        session.user.experienceLevel = token.experienceLevel;
       }
       return session;
     },

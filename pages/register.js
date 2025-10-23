@@ -6,6 +6,7 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [experienceLevel, setExperienceLevel] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -14,27 +15,36 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
+    
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, experienceLevel }),
       });
 
       if (res.ok) {
-        await signIn("credentials", {
-          redirect: true,
+        // Auto-login after successful registration
+        const loginRes = await signIn("credentials", {
+          redirect: false,
           email,
           password,
-          callbackUrl: "/",
         });
+        
+        if (loginRes?.ok) {
+          router.push("/");
+        } else {
+          // If auto-login fails, redirect to login page
+          router.push("/login");
+        }
         return;
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data?.error || "Registration failed");
       }
-    } catch (_e) {
-      setError("Registration failed");
+    } catch (err) {
+      setError("An unexpected error occurred. Please try again.");
+      console.error("Registration error:", err);
     } finally {
       setLoading(false);
     }
@@ -56,6 +66,7 @@ export default function RegisterPage() {
                 className="input"
                 placeholder="Enter your name"
                 autoComplete="name"
+                disabled={loading}
               />
             </div>
             <div className="mb-4">
@@ -71,9 +82,10 @@ export default function RegisterPage() {
                 autoComplete="email"
                 aria-invalid={!!error}
                 aria-describedby={error ? "register-error" : undefined}
+                disabled={loading}
               />
             </div>
-            <div className="mb-4">
+<div className="mb-4">
               <label htmlFor="password" className="label">Password</label>
               <input
                 id="password"
@@ -87,7 +99,24 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 aria-invalid={!!error}
                 aria-describedby={error ? "register-error" : undefined}
+                disabled={loading}
               />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="experienceLevel" className="label">Experience Level</label>
+              <select
+                id="experienceLevel"
+                value={experienceLevel}
+                onChange={(e) => setExperienceLevel(e.target.value)}
+                required
+                className="input"
+                disabled={loading}
+              >
+                <option value="">Select your experience level</option>
+                <option value="junior">Junior Developer</option>
+                <option value="mid">Mid-level Developer</option>
+                <option value="senior">Senior Developer</option>
+              </select>
             </div>
             {error && (
               <p id="register-error" className="text-red-500 text-sm mb-4" role="alert">

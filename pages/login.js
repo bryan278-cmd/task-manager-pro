@@ -6,20 +6,31 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
-    const res = await signIn("credentials", {
-      redirect: false,
-      email,
-      password,
-    });
-    if (res?.ok) {
-      router.push("/");
-    } else {
-      setError(res?.error || "Invalid credentials");
+    setLoading(true);
+    
+    try {
+      const res = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
+      
+      if (res?.ok) {
+        router.push("/");
+      } else {
+        setError(res?.error || "Invalid credentials");
+      }
+    } catch (err) {
+      setError("An unexpected error occurred. Please try again.");
+      console.error("Login error:", err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -42,6 +53,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 aria-invalid={!!error}
                 aria-describedby={error ? "login-error" : undefined}
+                disabled={loading}
               />
             </div>
             <div className="mb-4">
@@ -58,6 +70,7 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 aria-invalid={!!error}
                 aria-describedby={error ? "login-error" : undefined}
+                disabled={loading}
               />
             </div>
             {error && (
@@ -65,8 +78,12 @@ export default function LoginPage() {
                 {error}
               </p>
             )}
-            <button type="submit" className="btn btn-gold w-full mt-4 lux-focus">
-              Sign In
+            <button 
+              type="submit" 
+              className="btn btn-gold w-full mt-4 lux-focus"
+              disabled={loading}
+            >
+              {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
           <div className="hairline mt-4 mb-3"></div>

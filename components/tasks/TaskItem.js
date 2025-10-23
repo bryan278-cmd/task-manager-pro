@@ -1,12 +1,15 @@
-import React, { memo } from "react";
+import React from 'react';
+import CompleteButton from '../CompleteButton'; // Import your new button
 
-const TaskCard = memo(function TaskCard({ task, isCompleted, onComplete }) {
+const TaskCard = ({ task }) => { // Assuming it receives a 'task' prop
   // Determine badge style based on priority
-  const getPriorityBadgeClass = (priority) => {
-    if (priority === 'HIGH' || priority === 'CRITICAL') {
-      return 'badge badge-gold';
+  const getPriorityClass = (priority) => {
+    switch (priority?.toLowerCase()) {
+      case 'high': return 'badge badge-high';
+      case 'medium': return 'badge badge-medium';
+      case 'low': return 'badge badge-low';
+      default: return 'badge';
     }
-    return 'badge';
   };
 
   return (
@@ -14,25 +17,24 @@ const TaskCard = memo(function TaskCard({ task, isCompleted, onComplete }) {
       <div className="flex items-start gap-4">
         {/* Checkbox */}
         <div className="mt-1">
-          <div className={`checkbox ${isCompleted ? "checkbox--checked" : ""}`}>
+          <div className="checkbox">
             <input 
               type="checkbox" 
-              checked={isCompleted}
-              onChange={() => onComplete()}
-              aria-label={isCompleted ? "Marcar como no completada" : "Marcar como completada"}
+              aria-label="Marcar como completada"
             />
           </div>
         </div>
         
         <div className="flex-1">
           {/* Title */}
-          <div className={`font-semibold text-[var(--text)] mb-3 ${isCompleted ? 'line-through' : ''}`}>
+          <div className="font-semibold text-[var(--text)] mb-3">
             {task.title}
           </div>
           
           {/* Metadata */}
           <div className="flex flex-wrap gap-2">
-            <span className={getPriorityBadgeClass(task.priority)}>{task.priority}</span>
+            <span className="badge">Level {task.difficultyLevel}</span>
+            <span className={getPriorityClass(task.priority)}>{task.priority.toUpperCase()}</span>
             <span className="badge">{task.category}</span>
             {task.deadline && (
               <span className="badge">📅 {new Date(task.deadline).toLocaleDateString()}</span>
@@ -45,35 +47,14 @@ const TaskCard = memo(function TaskCard({ task, isCompleted, onComplete }) {
             )}
           </div>
         </div>
-        
-        {/* Buttons */}
-        <div className="flex gap-2">
-          {!isCompleted && (
-            <button
-              onClick={() => onComplete()}
-              aria-label="Marcar como completada"
-              className="btn btn-ghost text-sm px-3 py-1 lux-focus"
-            >
-              Mark as done
-            </button>
-          )}
-          
-          {isCompleted && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onComplete(false);
-              }}
-              aria-label="Marcar como no completada"
-              className="btn btn-ghost text-sm px-3 py-1 lux-focus"
-            >
-              Undo
-            </button>
-          )}
-        </div>
+      </div>
+      
+      {/* Positioned below the main content to avoid obscuring other elements */}
+      <div className="mt-3">
+        <CompleteButton />
       </div>
     </div>
   );
-});
+};
 
 export { TaskCard };

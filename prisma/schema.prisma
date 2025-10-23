@@ -24,6 +24,7 @@ model User {
   email     String   @unique
   password  String // hashed with bcrypt
   name      String?
+  experienceLevel String? // "junior", "mid", "senior"
   tasks     Task[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -35,6 +36,7 @@ model Task {
   priority  Priority
   category  Category
   completed Boolean  @default(false)
+  difficultyLevel Int? // 1-4 for pages of increasing difficulty
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -44,4 +46,5 @@ model Task {
   @@index([priority])
   @@index([category])
   @@index([completed])
+  @@index([difficultyLevel])
 }
