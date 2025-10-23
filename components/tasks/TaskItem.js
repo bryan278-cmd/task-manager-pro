@@ -1,7 +1,7 @@
 import React from 'react';
 import CompleteButton from '../CompleteButton'; // Import your new button
 
-const TaskCard = ({ task }) => { // Assuming it receives a 'task' prop
+const TaskCard = ({ task, isCompleted, onComplete }) => { // Assuming it receives a 'task' prop
   // Determine badge style based on priority
   const getPriorityClass = (priority) => {
     switch (priority?.toLowerCase()) {
@@ -20,6 +20,8 @@ const TaskCard = ({ task }) => { // Assuming it receives a 'task' prop
           <div className="checkbox">
             <input 
               type="checkbox" 
+              checked={isCompleted || task.completed}
+              onChange={() => onComplete(task.id)}
               aria-label="Marcar como completada"
             />
           </div>
@@ -27,7 +29,7 @@ const TaskCard = ({ task }) => { // Assuming it receives a 'task' prop
         
         <div className="flex-1">
           {/* Title */}
-          <div className="font-semibold text-[var(--text)] mb-3">
+          <div className={`font-semibold text-[var(--text)] mb-3 ${isCompleted || task.completed ? 'line-through opacity-75' : ''}`}>
             {task.title}
           </div>
           
@@ -51,7 +53,7 @@ const TaskCard = ({ task }) => { // Assuming it receives a 'task' prop
       
       {/* Positioned below the main content to avoid obscuring other elements */}
       <div className="mt-3">
-        <CompleteButton />
+        <CompleteButton task={{...task, completed: isCompleted || task.completed}} onComplete={(updatedTask, completionStats) => onComplete(task.id, completionStats)} />
       </div>
     </div>
   );

@@ -7,10 +7,11 @@ export default function Home() {
   const { data: session } = useSession();
   
   const [tasks, setTasks] = useState([]);
-  const [completedTasks, setCompletedTasks] = useState({});
   const [mounted, setMounted] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalTasks, setTotalTasks] = useState(50); // Fixed to 50 per user as per requirements
+  const [completedTaskCount, setCompletedTaskCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [priorityFilter, setPriorityFilter] = useState('ALL');
@@ -24,7 +25,7 @@ export default function Home() {
       setError(null);
       
       try {
-        const response = await fetch(`/api/tasks?page=${page}&take=10&priority=${priorityFilter}`);
+        const response = await fetch(`/api/tasks?page=${page}&priority=${priorityFilter}`);
         if (!response.ok) {
           throw new Error(`Failed to fetch tasks: ${response.status}`);
         }
@@ -32,6 +33,8 @@ export default function Home() {
         const data = await response.json();
         setTasks(data.data || []);
         setTotalPages(data.pagination?.totalPages || 1);
+        setTotalTasks(data.pagination?.totalUserTasks || 50); // Use total user tasks count
+        setCompletedTaskCount(data.pagination?.completedTasks || 0);
       } catch (err) {
         console.error('Error fetching tasks:', err);
         setError(err.message);
@@ -44,38 +47,19 @@ export default function Home() {
     fetchTasks();
   }, [page, priorityFilter, mounted]);
 
-  // Load completed tasks from localStorage on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('completed_tasks_v1');
-        if (saved) {
-          setCompletedTasks(JSON.parse(saved));
-        }
-      } catch (err) {
-        console.error('Error loading completed tasks:', err);
-        setCompletedTasks({});
-      }
-    }
-    setMounted(true);
-  }, []);
-
-  // Save completed tasks to localStorage
-  useEffect(() => {
-    if (mounted && typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('completed_tasks_v1', JSON.stringify(completedTasks));
-      } catch (err) {
-        console.error('Error saving completed tasks:', err);
-      }
-    }
-  }, [completedTasks, mounted]);
-
-  // Handle task completion toggle
-  const handleTaskToggle = async (taskId) => {
+  // Handle task completion toggle with proper completion stats update
+  const handleTaskToggle = async (taskId, completionStats = null) => {
     try {
+      // If completionStats is provided (from CompleteButton), update the global counters
+      if (completionStats) {
+        setCompletedTaskCount(completionStats.completedTasks);
+        setTotalTasks(completionStats.totalTasks);
+        return;
+      }
+      
+      // Otherwise, make the API call directly
       const response = await fetch(`/api/tasks/${taskId}/toggle`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -83,24 +67,23 @@ export default function Home() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to toggle task: ${response.status}`);
+        throw new Error(errorData.error || `Failed to toggle task: ${response.status}`);
       }
 
-      const updatedTask = await response.json();
+      const data = await response.json();
       
-      // Update completed tasks state
-      if (updatedTask.completed) {
-        setCompletedTasks(prev => ({ ...prev, [taskId]: true }));
-      } else {
-        setCompletedTasks(prev => {
-          const newCompleted = { ...prev };
-          delete newCompleted[taskId];
-          return newCompleted;
-        });
-      }
+      // Update tasks state with the updated task
+      setTasks(prevTasks => 
+        prevTasks.map(task => 
+          task.id === data.task.id ? data.task : task
+        )
+      );
+      
+      // Update completion statistics
+      setCompletedTaskCount(data.completionStats.completedTasks);
+      setTotalTasks(data.completionStats.totalTasks);
     } catch (err) {
       console.error('Error toggling task:', err);
-      // Show error to user (could be enhanced with toast notifications)
       alert(`Error: ${err.message}`);
     }
   };
@@ -110,6 +93,10 @@ export default function Home() {
     setPriorityFilter(priority);
     setPage(1); // Reset to first page when filter changes
   };
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   if (!mounted) {
     return (
@@ -126,6 +113,9 @@ export default function Home() {
       </div>
     );
   }
+
+  // Calculate completion percentage based on all user tasks
+  const completionPercentage = totalTasks > 0 ? Math.round((completedTaskCount / totalTasks) * 100) : 0;
 
   return (
     <div className="app-shell">
@@ -171,22 +161,29 @@ export default function Home() {
 
         {/* Progress indicator */}
         <div className="card mb-4">
-          <div className="hstack">
-            <div style={{ fontWeight: 600 }}>
-              {Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length} of {tasks.length} tasks completed
+          <div className="vstack" style={{ gap: '12px' }}>
+            <div className="hstack" style={{ justifyContent: 'space-between', fontWeight: 600 }}>
+              <span>Progress</span>
+              <span>{completedTaskCount} of {totalTasks} tasks completed</span>
             </div>
             <div className="progress">
               <div 
                 className="progress__fill" 
-                style={{ width: `${tasks.length > 0 ? (Object.keys(completedTasks).filter(taskId => completedTasks[taskId]).length / tasks.length) * 100 : 0}%` }}
+                style={{ 
+                  width: `${completionPercentage}%`,
+                  transition: 'width 0.3s ease'
+                }}
               ></div>
+            </div>
+            <div className="subhead" style={{ color: 'var(--muted)' }}>
+              {completionPercentage}% complete
             </div>
           </div>
         </div>
 
         {/* Error display */}
         {error && (
-          <div className="card mb-4" style={{ color: 'var(--error)' }}>
+          <div className="card mb-4" style={{ color: 'var(--danger)' }}>
             Error loading tasks: {error}
           </div>
         )}
@@ -211,8 +208,8 @@ export default function Home() {
               <TaskCard
                 key={task.id}
                 task={task}
-                isCompleted={completedTasks[task.id] || false}
-                onComplete={() => handleTaskToggle(task.id)}
+                isCompleted={task.completed || false}
+                onComplete={handleTaskToggle}
               />
             ))}
           </div>

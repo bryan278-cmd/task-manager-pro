@@ -3,31 +3,55 @@
 import React, { useState } from 'react';
 import styles from './CompleteButton.module.css'; // Use CSS modules
 
-const CompleteButton = () => {
-  // 1. Use useState to create a state variable.
-  //    'isCompleted' will store if the task is done (true) or not (false).
-  //    Initially, it is not done, so the value is 'false'.
-  const [isCompleted, setIsCompleted] = useState(false);
+const CompleteButton = ({ task, onComplete }) => {
+  const [isCompleted, setIsCompleted] = useState(task.completed || false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // 2. This function runs every time the user clicks the button.
-  const handleClick = () => {
-    // Toggle the state to its opposite value.
-    // If it was 'false', it becomes 'true'. If 'true', it becomes 'false'.
-    // This allows both marking AND unmarking the task.
-    setIsCompleted(prevIsCompleted => !prevIsCompleted);
+  const handleClick = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`/api/tasks/${task.id}/toggle`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update task: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Update local state
+      setIsCompleted(data.task.completed);
+      
+      // Call onComplete callback with updated completion statistics
+      if (onComplete) {
+        onComplete(data.task, data.completionStats);
+      }
+    } catch (err) {
+      console.error('Error completing task:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <button
-      // 3. The button's className changes based on the state.
-      //    If 'isCompleted' is true, it uses the 'button-completed' class.
-      //    If false, it uses the 'button-incomplete' class.
-      className={isCompleted ? styles['button-completed'] : styles['button-incomplete']}
-      onClick={handleClick}
-    >
-      {/* 4. The button's text also changes based on the state. */}
-      {isCompleted ? 'Done' : 'Mark as Done'}
-    </button>
+    <div>
+      <button
+        className={isCompleted ? styles['button-completed'] : styles['button-incomplete']}
+        onClick={handleClick}
+        disabled={isLoading}
+      >
+        {isLoading ? 'Updating...' : (isCompleted ? 'Done' : 'Mark as Done')}
+      </button>
+      {error && <div className="error">Error: {error}</div>}
+    </div>
   );
 };
 
