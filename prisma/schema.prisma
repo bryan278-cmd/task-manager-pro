@@ -37,6 +37,7 @@ model Task {
   category  Category
   completed Boolean  @default(false)
   difficultyLevel Int? // 1-4 for pages of increasing difficulty
+  impactScore Int? // 1-100 value/impact score for intelligent task distribution
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -47,4 +48,5 @@ model Task {
   @@index([category])
   @@index([completed])
   @@index([difficultyLevel])
+  @@index([impactScore])
 }
